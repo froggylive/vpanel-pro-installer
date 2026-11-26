@@ -241,15 +241,21 @@ function pidOf(vm) {
   return null;
 }
 
+const _lxcRunCache = new Map(); // id -> {at,val}
 function isRunning(vm) {
   if (String(vm.virt||'qemu') === 'lxc') {
+    const id = Number(vm.id);
+    const c = _lxcRunCache.get(id);
+    if (c && (Date.now() - c.at) < 5000) return c.val;
+    let val = false;
     try {
       if (lxcRuntime() === 'docker') {
-        const out = runCmd(`docker inspect -f '{{.State.Running}}' ${lxcName(vm)}`, {timeout:10000});
-        return out === 'true';
+        const out = runCmd(`docker inspect -f '{{.State.Running}}' ${lxcName(vm)}`, {timeout:5000});
+        val = out === 'true';
       }
     } catch(_){}
-    return false;
+    _lxcRunCache.set(id, { at: Date.now(), val });
+    return val;
   }
   const pid = pidOf(vm);
   if (!pid) return false;
@@ -540,8 +546,22 @@ async function create({ user, data }) {
 }
 
 function lxcName(vm){ return `vp-lxc-${vm.id}`; }
-function hasDocker(){ try{ execSync('which docker >/dev/null 2>&1 && docker info >/dev/null 2>&1',{stdio:'ignore',timeout:5000}); return true; }catch(_){ return false; } }
-function lxcRuntime(){ if (hasLxc()) return 'lxc'; if (hasDocker()) return 'docker'; return null; }
+let _lxcRuntimeCache = { at: 0, val: undefined };
+function hasDocker(){
+  const rt = lxcRuntime();
+  return rt === 'docker';
+}
+function lxcRuntime(){
+  const now = Date.now();
+  if (_lxcRuntimeCache.val !== undefined && (now - _lxcRuntimeCache.at) < 60000) return _lxcRuntimeCache.val;
+  let val = null;
+  try { execSync('which lxc-start >/dev/null 2>&1 && which lxc-info >/dev/null 2>&1', {stdio:'ignore',timeout:3000}); val = 'lxc'; } catch(_) {}
+  if (!val) {
+    try { execSync('which docker >/dev/null 2>&1 && docker info >/dev/null 2>&1', {stdio:'ignore',timeout:5000}); val = 'docker'; } catch(_) {}
+  }
+  _lxcRuntimeCache = { at: now, val };
+  return val;
+}
 function dockerImageForVm(vm){
   const os = String(vm.os_type||'ubuntu').toLowerCase();
   if (os.includes('alpine')) return 'alpine:3.20';
