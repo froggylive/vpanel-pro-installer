@@ -139,15 +139,20 @@ function buildQemuArgs(vm) {
   const fwds = parseForwards(vm.port_forwards);
   const kvmAvailable = hasKvm();
   const accelMode = kvmAvailable ? 'kvm:tcg' : 'tcg';
-  const cpuType = kvmAvailable ? 'host' : 'qemu64';
+  const configuredCpu = String(vm.cpu_model || '').trim();
+  const cpuType = configuredCpu || (kvmAvailable ? 'host' : 'Cascadelake-Server');
+  const diskCache = String(vm.disk_cache || 'writeback').trim() || 'writeback';
 
   const args = [
     '-m', String(vm.memory),
-    '-smp', String(vm.cpus),
+    '-smp', `${vm.cpus},sockets=1,cores=${vm.cpus},threads=1`,
     '-cpu', cpuType,
-    '-machine', `type=pc,accel=${accelMode}`,
-    '-drive', `file=${img},format=qcow2,if=virtio`,
-    '-drive', `file=${seed},format=raw,if=virtio`,
+    '-machine', `type=q35,accel=${accelMode}${kvmAvailable ? '' : ',usb=off'}`,
+    '-global', 'isa-fdc.fdtypeA=none',
+    '-drive', `file=${img},format=qcow2,if=none,id=drive0,cache=${diskCache},discard=unmap,aio=threads`,
+    '-device', 'virtio-blk-pci,drive=drive0,bootindex=1',
+    '-drive', `file=${seed},format=raw,if=none,id=seed0,cache=writeback,readonly=on`,
+    '-device', 'virtio-blk-pci,drive=seed0',
     '-boot', 'order=c',
     '-device', 'virtio-net-pci,netdev=n0',
     '-netdev', `user,id=n0,hostfwd=tcp::${vm.ssh_port}-:22${vm.agent_port ? `,hostfwd=tcp::${vm.agent_port}-:9090` : ''}`,
@@ -177,7 +182,7 @@ function buildQemuArgs(vm) {
 
   args.push(
     '-serial', `file:${path.join(dir, 'boot.log')}`,
-    '-vga', 'std',
+    '-vga', 'virtio',
     '-pidfile', path.join(dir, 'qemu.pid'),
     '-daemonize',
   );
@@ -433,7 +438,8 @@ async function create({ user, data }) {
   fs.mkdirSync(dir, { recursive: true });
 
   const allowedCpuModels = new Set(['', 'host', 'qemu64', 'max', 'kvm64', 'Broadwell', 'Cascadelake-Server', 'EPYC', 'EPYC-Rome', 'EPYC-Milan', 'Haswell', 'IvyBridge', 'SandyBridge', 'Skylake-Server', 'Westmere']);
-  const cpuModel = allowedCpuModels.has(String(data.cpu_model || '').trim()) ? String(data.cpu_model || '').trim() : '';
+  const requestedCpu = String(data.cpu_model || '').trim();
+  const cpuModel = allowedCpuModels.has(requestedCpu) ? requestedCpu : 'Cascadelake-Server';
   const vm = {
     id,
     uuid: uuidv4(),
