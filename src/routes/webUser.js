@@ -119,6 +119,16 @@ router.post(['/server/:id/reinstall','/vds/:id/reinstall'], loadVm, express.json
   catch(e){ res.status(500).json({ error: e.message }); }
 });
 
+router.post(['/server/:id/settings','/vds/:id/settings'], loadVm, express.json(), async (req,res)=>{
+  try {
+    const allowed = ['cpu_model','hostname','start_on_boot','notes','startup_command'];
+    const data = {};
+    for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
+    const vm = await vmService.update(req.vm, data, req.user);
+    res.json({ ok: true, vm: vmService.serializeVm(vm) });
+  } catch(e){ res.status(500).json({ error: e.message }); }
+});
+
 
 // Backups
 router.post(['/server/:id/backups/create','/servers/:id/backups'], loadVm, express.json(), async (req,res)=>{

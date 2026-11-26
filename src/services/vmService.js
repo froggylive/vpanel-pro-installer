@@ -432,6 +432,8 @@ async function create({ user, data }) {
   const dir = path.join(VM_DIR, String(id));
   fs.mkdirSync(dir, { recursive: true });
 
+  const allowedCpuModels = new Set(['', 'host', 'qemu64', 'max', 'kvm64', 'Broadwell', 'Cascadelake-Server', 'EPYC', 'EPYC-Rome', 'EPYC-Milan', 'Haswell', 'IvyBridge', 'SandyBridge', 'Skylake-Server', 'Westmere']);
+  const cpuModel = allowedCpuModels.has(String(data.cpu_model || '').trim()) ? String(data.cpu_model || '').trim() : '';
   const vm = {
     id,
     uuid: uuidv4(),
@@ -446,6 +448,7 @@ async function create({ user, data }) {
     disk_size: diskSize,
     memory,
     cpus,
+    cpu_model: cpuModel,
     ssh_port: sshPort,
     vnc_port: vncPort,
     agent_port: agentPort,
@@ -582,7 +585,7 @@ async function remove(vm, user) {
 
 async function update(vm, data, user) {
   const fields = [
-    'name', 'hostname', 'username', 'password', 'memory', 'cpus', 'disk_size',
+    'name', 'hostname', 'username', 'password', 'memory', 'cpus', 'cpu_model', 'disk_size',
     'gui_mode', 'port_forwards', 'start_on_boot', 'startup_command', 'notes',
     'owner_id', 'description', 'external_id', 'exp_date', 'threads', 'swap',
     'suspended', 'node_id', 'node_name'
@@ -593,6 +596,10 @@ async function update(vm, data, user) {
       if (f === 'port_forwards' && Array.isArray(data[f])) $set[f] = JSON.stringify(data[f]);
       else if (f === 'gui_mode' || f === 'start_on_boot') $set[f] = data[f] ? 1 : 0;
       else if (f === 'owner_id') $set[f] = parseInt(data[f], 10);
+      else if (f === 'cpu_model') {
+        const allowedCpuModels = new Set(['', 'host', 'qemu64', 'max', 'kvm64', 'Broadwell', 'Cascadelake-Server', 'EPYC', 'EPYC-Rome', 'EPYC-Milan', 'Haswell', 'IvyBridge', 'SandyBridge', 'Skylake-Server', 'Westmere']);
+        $set[f] = allowedCpuModels.has(String(data[f]||'').trim()) ? String(data[f]||'').trim() : '';
+      }
       else $set[f] = data[f];
     }
   }
