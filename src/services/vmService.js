@@ -555,9 +555,10 @@ function lxcRuntime(){
   const now = Date.now();
   if (_lxcRuntimeCache.val !== undefined && (now - _lxcRuntimeCache.at) < 60000) return _lxcRuntimeCache.val;
   let val = null;
-  try { execSync('which lxc-start >/dev/null 2>&1 && which lxc-info >/dev/null 2>&1', {stdio:'ignore',timeout:3000}); val = 'lxc'; } catch(_) {}
+  // Prefer Docker-backed containers - fully implemented and works in this environment
+  try { execSync('which docker >/dev/null 2>&1 && docker info >/dev/null 2>&1', {stdio:'ignore',timeout:5000}); val = 'docker'; } catch(_) {}
   if (!val) {
-    try { execSync('which docker >/dev/null 2>&1 && docker info >/dev/null 2>&1', {stdio:'ignore',timeout:5000}); val = 'docker'; } catch(_) {}
+    try { execSync('which lxc-start >/dev/null 2>&1 && which lxc-info >/dev/null 2>&1', {stdio:'ignore',timeout:3000}); val = 'lxc'; } catch(_) {}
   }
   _lxcRuntimeCache = { at: now, val };
   return val;
