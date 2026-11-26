@@ -242,6 +242,15 @@ function pidOf(vm) {
 }
 
 function isRunning(vm) {
+  if (String(vm.virt||'qemu') === 'lxc') {
+    try {
+      if (lxcRuntime() === 'docker') {
+        const out = runCmd(`docker inspect -f '{{.State.Running}}' ${lxcName(vm)}`, {timeout:10000});
+        return out === 'true';
+      }
+    } catch(_){}
+    return false;
+  }
   const pid = pidOf(vm);
   if (!pid) return false;
   try {
@@ -484,50 +493,122 @@ async function create({ user, data }) {
 
   await collections.vms.insertOne(vm);
 
-  const img = vm.img_file;
-  if (!fs.existsSync(img)) {
-    if (data.upload_image && data.upload_image.originalname && data.upload_image.size) {
-      fs.copyFileSync(data.upload_image.path, img);
-      logger.info('[vm] using uploaded image');
-      const info = spawnSync('qemu-img', ['info', '--output=json', img], { encoding: 'utf8' });
-      let fmt = null;
-      try { fmt = JSON.parse(info.stdout).format; } catch (_) {}
-      if (fmt && fmt !== 'qcow2') {
-        logger.info(`[vm] uploaded image format is ${fmt}; converting to qcow2`);
-        const tmp = img + '.conv';
-        const conv = spawnSync('qemu-img', ['convert', '-O', 'qcow2', img, tmp], { encoding: 'utf8' });
-        if (conv.status !== 0) throw new Error('Failed to convert uploaded image: ' + (conv.stderr || ''));
-        fs.unlinkSync(img);
-        fs.renameSync(tmp, img);
-      }
-    } else {
-      if (!hasBin('wget')) throw new Error('wget is required to download cloud images');
-      const r = spawnSync('qemu-img', ['info', img], { encoding: 'utf8' });
-      if (!fs.existsSync(img) || r.status !== 0) {
-        logger.info(`[vm] downloading base image for ${osEntry[0]}`);
-        await download(vm.img_url, img);
+  if (virt === 'lxc') {
+    // LXC/container: no qcow2/seed image. Container is provisioned on start.
+    try { fs.mkdirSync(path.join(dir, 'rootfs'), { recursive: true }); } catch(_){}
+    try { fs.appendFileSync(path.join(dir,'boot.log'), `[vPanel] LXC container created. It will be provisioned on first start using ${lxcRuntime() || 'docker/lxc'} runtime.\r\n`, 'utf8'); } catch(_){}
+    await setDbStatus(id, 'stopped');
+    await logActivity({ user_id: user.id, vm_id: id, event: 'vm:create', details: { name: vmName, port: sshPort, virt: 'lxc' } });
+  } else {
+    const img = vm.img_file;
+    if (!fs.existsSync(img)) {
+      if (data.upload_image && data.upload_image.originalname && data.upload_image.size) {
+        fs.copyFileSync(data.upload_image.path, img);
+        logger.info('[vm] using uploaded image');
+        const info = spawnSync('qemu-img', ['info', '--output=json', img], { encoding: 'utf8' });
+        let fmt = null;
+        try { fmt = JSON.parse(info.stdout).format; } catch (_) {}
+        if (fmt && fmt !== 'qcow2') {
+          logger.info(`[vm] uploaded image format is ${fmt}; converting to qcow2`);
+          const tmp = img + '.conv';
+          const conv = spawnSync('qemu-img', ['convert', '-O', 'qcow2', img, tmp], { encoding: 'utf8' });
+          if (conv.status !== 0) throw new Error('Failed to convert uploaded image: ' + (conv.stderr || ''));
+          fs.unlinkSync(img);
+          fs.renameSync(tmp, img);
+        }
+      } else {
+        if (!hasBin('wget')) throw new Error('wget is required to download cloud images');
+        const r = spawnSync('qemu-img', ['info', img], { encoding: 'utf8' });
+        if (!fs.existsSync(img) || r.status !== 0) {
+          logger.info(`[vm] downloading base image for ${osEntry[0]}`);
+          await download(vm.img_url, img);
+        }
       }
     }
-  }
 
-  const resize = spawnSync('qemu-img', ['resize', img, diskSize], { encoding: 'utf8' });
-  if (resize.status !== 0) {
-    logger.warn('[vm] resize failed (image may be unformatted): ' + (resize.stderr || ''));
-  }
+    const resize = spawnSync('qemu-img', ['resize', img, diskSize], { encoding: 'utf8' });
+    if (resize.status !== 0) {
+      logger.warn('[vm] resize failed (image may be unformatted): ' + (resize.stderr || ''));
+    }
 
-  writeSeed(vm);
-  await setDbStatus(id, 'stopped');
-  await logActivity({ user_id: user.id, vm_id: id, event: 'vm:create', details: { name: vmName, port: sshPort } });
+    writeSeed(vm);
+    await setDbStatus(id, 'stopped');
+    await logActivity({ user_id: user.id, vm_id: id, event: 'vm:create', details: { name: vmName, port: sshPort } });
+  }
 
   return getVm(id);
 }
 
+function lxcName(vm){ return `vp-lxc-${vm.id}`; }
+function hasDocker(){ try{ execSync('which docker >/dev/null 2>&1 && docker info >/dev/null 2>&1',{stdio:'ignore',timeout:5000}); return true; }catch(_){ return false; } }
+function lxcRuntime(){ if (hasLxc()) return 'lxc'; if (hasDocker()) return 'docker'; return null; }
+function dockerImageForVm(vm){
+  const os = String(vm.os_type||'ubuntu').toLowerCase();
+  if (os.includes('alpine')) return 'alpine:3.20';
+  if (os.includes('debian')) return 'debian:12';
+  if (os.includes('rocky')) return 'rockylinux:9';
+  if (os.includes('alma')) return 'almalinux:9';
+  if (os.includes('fedora')) return 'fedora:41';
+  if (os.includes('centos')) return 'centos:stream9';
+  if (os.includes('arch')) return 'archlinux:latest';
+  return 'ubuntu:24.04';
+}
+function runCmd(cmd, opts={}){
+  return execSync(cmd, { encoding:'utf8', stdio:['ignore','pipe','pipe'], timeout: opts.timeout||120000, ...opts }).trim();
+}
+function ensureLxcContainer(vm){
+  const rt = lxcRuntime();
+  if (!rt) throw new Error('No LXC/container runtime available on this node. Install LXC or Docker, or use KVM/QEMU.');
+  const name = lxcName(vm);
+  if (rt === 'docker') {
+    let exists = false;
+    try { runCmd(`docker inspect ${name} >/dev/null 2>&1`); exists = true; } catch(_){}
+    const dir = vmDir(vm);
+    fs.mkdirSync(path.join(dir,'rootfs'), { recursive:true });
+    fs.mkdirSync(path.join(dir,'cloud-init'), { recursive:true });
+    if (!exists) {
+      const img = dockerImageForVm(vm);
+      try { runCmd(`docker pull ${img}`, {timeout:300000}); } catch(e){ logger.warn('[lxc] docker pull failed: '+e.message); }
+      const mem = Math.max(128, parseInt(vm.memory,10)||512);
+      const cpus = Math.max(1, parseInt(vm.cpus,10)||1);
+      const sshPort = parseInt(vm.ssh_port,10);
+      const forwards = parseForwards(vm.port_forwards);
+      let ports = `-p ${sshPort}:22`;
+      for (const f of forwards) ports += ` -p ${parseInt(f.host,10)}:${parseInt(f.guest,10)}`;
+      const cmd = `docker create --name ${name} --hostname ${String(vm.hostname||vm.name).replace(/[^a-zA-Z0-9.-]/g,'')} --memory=${mem}m --cpus=${cpus} --restart unless-stopped ${ports} -v ${path.join(dir,'rootfs')}:/data ${img} /bin/sh -c "sleep infinity"`;
+      runCmd(cmd, {timeout:300000});
+      setDbStatus(vm.id,'stopped');
+    }
+    return { runtime:'docker', name };
+  }
+  throw new Error('Native LXC runtime detected but provisioning is not fully configured. Install Docker or configure LXC templates.');
+}
+async function startLxc(vm, user){
+  const rt = lxcRuntime();
+  if (!rt) throw new Error('No LXC/container runtime available on this node. Install Docker/LXC or use KVM/QEMU.');
+  ensureLxcContainer(vm);
+  const name = lxcName(vm);
+  const dir = vmDir(vm);
+  const bootLogPath = path.join(dir,'boot.log');
+  try { fs.appendFileSync(bootLogPath, `\r\n=== [vPanel] Starting LXC container "${vm.name}" (${rt}) at ${new Date().toISOString()} ===\r\n`, 'utf8'); } catch(_){ }
+  if (rt === 'docker') {
+    try { runCmd(`docker start ${name}`, {timeout:120000}); } catch(e){ throw new Error('Docker start failed: '+(e.stderr||e.message)); }
+    // bootstrap SSH/user - best effort
+    const usern = String(vm.username||'root').replace(/[^a-zA-Z0-9_-]/g,'');
+    const pass = String(vm.password||'').replace(/'/g,"'\\''");
+    const boot = `set -e; (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server sudo >/dev/null 2>&1 || true); (command -v apk >/dev/null && apk add --no-cache openssh sudo >/dev/null 2>&1 || true); (command -v yum >/dev/null && yum install -y openssh-server sudo >/dev/null 2>&1 || true); mkdir -p /run/sshd /var/run/sshd; ssh-keygen -A >/dev/null 2>&1 || true; if [ "${usern}" != "root" ]; then id ${usern} >/dev/null 2>&1 || useradd -m -s /bin/bash ${usern} || adduser -D -s /bin/sh ${usern} || true; echo '${usern}:${pass}' | chpasswd || true; usermod -aG sudo ${usern} >/dev/null 2>&1 || true; fi; echo 'root:${pass}' | chpasswd || true; sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null || true; sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true; (service ssh start >/dev/null 2>&1 || service sshd start >/dev/null 2>&1 || /usr/sbin/sshd >/dev/null 2>&1 || true); echo LXC_READY`;
+    try { runCmd(`docker exec ${name} /bin/sh -c '${boot}'`, {timeout:300000}); } catch(e){ logger.warn('[lxc] bootstrap warning: '+e.message); }
+    try { fs.appendFileSync(bootLogPath, `[vPanel] Container started. SSH mapped to host port ${vm.ssh_port}.\r\n`, 'utf8'); } catch(_){}
+    setDbStatus(vm.id,'running');
+    logActivity({ user_id: user ? user.id : null, vm_id: vm.id, event: 'vm:start' });
+    return { ok:true };
+  }
+  throw new Error('Unsupported LXC runtime');
+}
+
 async function start(vm, { user = null } = {}) {
   if (isRunning(vm)) return { ok: true, message: 'already running' };
-  if (String(vm.virt||'qemu') === 'lxc') {
-    if (!hasLxc()) throw new Error('LXC runtime is not installed on this node. Install LXC/LXD or use KVM/QEMU virtualization.');
-    throw new Error('LXC provisioning/start is not configured on this node yet. Select KVM or QEMU for this server, or configure an LXC-capable node.');
-  }
+  if (String(vm.virt||'qemu') === 'lxc') return startLxc(vm, user);
   if (!fs.existsSync(vm.img_file)) throw new Error(`Image file not found: ${vm.img_file}`);
   if (!fs.existsSync(vm.seed_file)) {
     writeSeed(vm);
@@ -559,6 +640,15 @@ async function start(vm, { user = null } = {}) {
 }
 
 function stop(vm, { user = null, force = false } = {}) {
+  if (String(vm.virt||'qemu') === 'lxc') {
+    const name = lxcName(vm);
+    try {
+      if (lxcRuntime() === 'docker') runCmd(`docker ${force ? 'kill' : 'stop'} ${name}`, {timeout:120000});
+    } catch(e){ logger.warn('[lxc] stop error: '+e.message); }
+    setDbStatus(vm.id, 'stopped');
+    logActivity({ user_id: user ? user.id : null, vm_id: vm.id, event: force ? 'vm:kill' : 'vm:stop' });
+    return { ok: true };
+  }
   const pid = pidOf(vm);
   if (!pid) {
     setDbStatus(vm.id, 'stopped');
@@ -590,6 +680,9 @@ async function restart(vm, user) {
 
 async function remove(vm, user) {
   if (isRunning(vm)) await stop(vm, { user, force: true });
+  if (String(vm.virt||'qemu') === 'lxc') {
+    try { if (lxcRuntime()==='docker') runCmd(`docker rm -f ${lxcName(vm)}`, {timeout:120000}); } catch(e){ logger.warn('[lxc] remove error: '+e.message); }
+  }
   try {
     fs.rmSync(vmDir(vm), { recursive: true, force: true });
   } catch (e) {
@@ -692,7 +785,9 @@ function usage() {
     qemu: hasBin('qemu-system-x86_64'),
     cloudLocalds: hasBin('cloud-localds'),
     wget: hasBin('wget'),
-    kvm: hasBin('qemu-kvm') || hasBin('/usr/libexec/qemu-kvm'),
+    kvm: hasKvm(),
+    lxc: !!lxcRuntime(),
+    docker: hasDocker(),
   };
 }
 
@@ -729,6 +824,16 @@ function uptimeSeconds(vm) {
 }
 
 function memUsage(vm) {
+  if (String(vm.virt||'qemu') === 'lxc') {
+    try {
+      if (lxcRuntime()==='docker') {
+        const out = runCmd(`docker stats --no-stream --format '{{.MemUsage}}' ${lxcName(vm)}`, {timeout:10000});
+        const m = String(out).split('/')[0].trim().match(/([0-9.]+)\s*([KMGT]?i?B)/i);
+        if (m) { const n=parseFloat(m[1]); const u=m[2].toUpperCase().replace('I',''); const mult=u==='B'?1:u==='KB'?1024:u==='MB'?1024**2:u==='GB'?1024**3:1; return Math.round(n*mult); }
+      }
+    } catch(_){}
+    return 0;
+  }
   const pid = pidOf(vm);
   if (!pid) return 0;
   try {
@@ -754,6 +859,15 @@ async function startOnBootAll() {
 }
 
 function cpuUsage(vm) {
+  if (String(vm.virt||'qemu') === 'lxc') {
+    try {
+      if (lxcRuntime()==='docker') {
+        const out = runCmd(`docker stats --no-stream --format '{{.CPUPerc}}' ${lxcName(vm)}`, {timeout:10000});
+        const m = String(out).match(/([0-9.]+)/); return m?Math.round(parseFloat(m[1])*10)/10:0;
+      }
+    } catch(_){}
+    return 0;
+  }
   const pid = pidOf(vm);
   if (!pid) return 0;
   const st = readProcStat(pid);
@@ -773,6 +887,20 @@ function cpuUsage(vm) {
 }
 
 function diskActualUsage(vm) {
+  if (String(vm.virt||'qemu') === 'lxc') {
+    try {
+      if (lxcRuntime()==='docker') {
+        const out = runCmd(`docker ps -a --no-trunc --format '{{.Size}}' --filter name=^/${lxcName(vm)}$`, {timeout:10000});
+        const m = String(out).match(/^([0-9.]+)\s*([KMGT]?B)/i);
+        if (m) {
+          const n=parseFloat(m[1]); const u=m[2].toUpperCase();
+          const mult = u==='B'?1:u==='KB'?1024:u==='MB'?1024**2:u==='GB'?1024**3:u==='TB'?1024**4:1;
+          return Math.round(n*mult);
+        }
+      }
+    } catch(_){}
+    return 0;
+  }
   try {
     if (vm.img_file && fs.existsSync(vm.img_file)) {
       return fs.statSync(vm.img_file).size;
@@ -844,5 +972,5 @@ function liveStats(vm) {
 module.exports = {
   VM_DIR, vmDir, dbVms, getVm, create, start, stop, restart, remove, update,
   resizeDisk, reinstall, isRunning, statusOf, serializeVm, canAccess, allocPort, allocVncPort, allocAgentPort,
-  parseForwards, usage, uptimeSeconds, memUsage, cpuUsage, diskActualUsage, liveStats, totalDiskUsage, startOnBootAll, getOsList, getBootLog, clearBootLog, hasKvm, hasLxc, transferOwner,
+  parseForwards, usage, uptimeSeconds, memUsage, cpuUsage, diskActualUsage, liveStats, totalDiskUsage, startOnBootAll, getOsList, getBootLog, clearBootLog, hasKvm, hasLxc, lxcRuntime, hasDocker, transferOwner,
 };

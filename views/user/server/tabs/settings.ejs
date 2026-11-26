@@ -10,7 +10,7 @@
     <button class="btn btn-danger" onclick="reinstall()">Reinstall Server</button>
   </div></div>
   <div class="card"><div class="card-h"><div class="card-t">Virtualization & CPU</div></div><div class="card-b">
-    <p class="muted" style="font-size:13px;margin-top:0">Changes apply after reboot. <b>KVM</b> needs <code>/dev/kvm</code> on the node. <b>QEMU</b> is software emulation (slower, works everywhere). <b>LXC</b> requires LXC runtime installed on node.</p>
+    <p class="muted" style="font-size:13px;margin-top:0">Changes apply after reboot. <b>KVM</b> needs <code>/dev/kvm</code> on the node. <b>QEMU</b> is software emulation (slower, works everywhere). <b>LXC</b> uses Docker/LXC container runtime on the node for lightweight VPS containers.</p>
     <div class="field"><label class="label">Virtualization Type</label><select id="virtType" class="input">
       <% const vt = (currentVm.virt||'qemu'); [['qemu','QEMU (software emulation)'],['kvm','KVM (hardware acceleration)'],['lxc','LXC (container)']].forEach(o=>{ %>
       <option value="<%=o[0]%>" <%=vt===o[0]?'selected':''%>><%=o[1]%></option>

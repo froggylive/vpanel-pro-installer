@@ -111,9 +111,9 @@
           <select id="fVirt" style="width:100%">
             <option value="qemu" selected>QEMU (software emulation, works everywhere)</option>
             <option value="kvm">KVM (hardware acceleration, requires /dev/kvm)</option>
-            <option value="lxc">LXC (container) - requires LXC runtime on node</option>
+            <option value="lxc">LXC (container) - Docker/LXC runtime on node</option>
           </select>
-          <div class="muted text-sm" style="margin-top:6px">KVM is fastest on supported hosts. QEMU works without KVM. LXC requires node LXC support.</div>
+          <div class="muted text-sm" style="margin-top:6px">KVM is fastest on supported hosts. QEMU works without KVM. LXC creates a lightweight container (Docker-backed on this node) in the same panel.</div>
         </div>
         
         <!-- vCPUs -->
