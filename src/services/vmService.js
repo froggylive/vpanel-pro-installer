@@ -131,17 +131,23 @@ function hasKvm() {
     return false;
   }
 }
+function hasLxc() {
+  try { execSync('which lxc-start >/dev/null 2>&1 && which lxc-info >/dev/null 2>&1'); return true; } catch (_) { return false; }
+}
 
 function buildQemuArgs(vm) {
   const dir = vmDir(vm);
   const img = vm.img_file || path.join(dir, 'disk.qcow2');
   const seed = vm.seed_file || path.join(dir, 'seed.iso');
   const fwds = parseForwards(vm.port_forwards);
+  const virt = String(vm.virt || 'qemu').toLowerCase();
   const kvmAvailable = hasKvm();
-  const accelMode = kvmAvailable ? 'kvm:tcg' : 'tcg';
+  const wantKvm = virt === 'kvm';
+  if (wantKvm && !kvmAvailable) throw new Error('KVM was selected but /dev/kvm is not available on this node. Use QEMU, or enable KVM on the host.');
+  const accelMode = wantKvm ? 'kvm' : 'tcg';
   const configuredCpu = String(vm.cpu_model || '').trim();
   // TCG cannot efficiently emulate modern Intel features; use TCG-friendly Intel default.
-  const cpuType = configuredCpu || (kvmAvailable ? 'host' : 'IvyBridge');
+  const cpuType = configuredCpu || (accelMode === 'kvm' ? 'host' : 'IvyBridge');
   const diskCache = String(vm.disk_cache || 'writeback').trim() || 'writeback';
 
   const args = [
@@ -275,6 +281,7 @@ function serializeVm(row) {
   const rawUuid = row.uuid || `vm-${String(row.id).padStart(8, '0')}`;
   const out = {
     ...row,
+    virt: String(row.virt || 'qemu').toLowerCase(),
     uuid: rawUuid,
     uuidShort: rawUuid.slice(0, 8),
     port_forwards: forwards,
@@ -440,7 +447,9 @@ async function create({ user, data }) {
 
   const allowedCpuModels = new Set(['', 'host', 'qemu64', 'max', 'kvm64', 'Broadwell', 'Cascadelake-Server', 'EPYC', 'EPYC-Rome', 'EPYC-Milan', 'Haswell', 'IvyBridge', 'SandyBridge', 'Skylake-Server', 'Westmere']);
   const requestedCpu = String(data.cpu_model || '').trim();
-  const cpuModel = allowedCpuModels.has(requestedCpu) ? requestedCpu : 'Cascadelake-Server';
+  const cpuModel = allowedCpuModels.has(requestedCpu) ? requestedCpu : ''; // auto
+  const allowedVirt = new Set(['kvm','qemu','lxc']);
+  const virt = allowedVirt.has(String(data.virt || 'qemu').toLowerCase()) ? String(data.virt || 'qemu').toLowerCase() : 'qemu';
   const vm = {
     id,
     uuid: uuidv4(),
@@ -456,6 +465,7 @@ async function create({ user, data }) {
     memory,
     cpus,
     cpu_model: cpuModel,
+    virt,
     ssh_port: sshPort,
     vnc_port: vncPort,
     agent_port: agentPort,
@@ -514,6 +524,10 @@ async function create({ user, data }) {
 
 async function start(vm, { user = null } = {}) {
   if (isRunning(vm)) return { ok: true, message: 'already running' };
+  if (String(vm.virt||'qemu') === 'lxc') {
+    if (!hasLxc()) throw new Error('LXC runtime is not installed on this node. Install LXC/LXD or use KVM/QEMU virtualization.');
+    throw new Error('LXC provisioning/start is not configured on this node yet. Select KVM or QEMU for this server, or configure an LXC-capable node.');
+  }
   if (!fs.existsSync(vm.img_file)) throw new Error(`Image file not found: ${vm.img_file}`);
   if (!fs.existsSync(vm.seed_file)) {
     writeSeed(vm);
@@ -592,7 +606,7 @@ async function remove(vm, user) {
 
 async function update(vm, data, user) {
   const fields = [
-    'name', 'hostname', 'username', 'password', 'memory', 'cpus', 'cpu_model', 'disk_size',
+    'name', 'hostname', 'username', 'password', 'memory', 'cpus', 'cpu_model', 'virt', 'disk_size',
     'gui_mode', 'port_forwards', 'start_on_boot', 'startup_command', 'notes',
     'owner_id', 'description', 'external_id', 'exp_date', 'threads', 'swap',
     'suspended', 'node_id', 'node_name'
@@ -606,6 +620,10 @@ async function update(vm, data, user) {
       else if (f === 'cpu_model') {
         const allowedCpuModels = new Set(['', 'host', 'qemu64', 'max', 'kvm64', 'Broadwell', 'Cascadelake-Server', 'EPYC', 'EPYC-Rome', 'EPYC-Milan', 'Haswell', 'IvyBridge', 'SandyBridge', 'Skylake-Server', 'Westmere']);
         $set[f] = allowedCpuModels.has(String(data[f]||'').trim()) ? String(data[f]||'').trim() : '';
+      }
+      else if (f === 'virt') {
+        const allowedVirt = new Set(['kvm','qemu','lxc']);
+        $set[f] = allowedVirt.has(String(data[f]||'qemu').toLowerCase()) ? String(data[f]||'qemu').toLowerCase() : 'qemu';
       }
       else $set[f] = data[f];
     }
@@ -826,5 +844,5 @@ function liveStats(vm) {
 module.exports = {
   VM_DIR, vmDir, dbVms, getVm, create, start, stop, restart, remove, update,
   resizeDisk, reinstall, isRunning, statusOf, serializeVm, canAccess, allocPort, allocVncPort, allocAgentPort,
-  parseForwards, usage, uptimeSeconds, memUsage, cpuUsage, diskActualUsage, liveStats, totalDiskUsage, startOnBootAll, getOsList, getBootLog, clearBootLog, hasKvm, transferOwner,
+  parseForwards, usage, uptimeSeconds, memUsage, cpuUsage, diskActualUsage, liveStats, totalDiskUsage, startOnBootAll, getOsList, getBootLog, clearBootLog, hasKvm, hasLxc, transferOwner,
 };

@@ -121,7 +121,7 @@ router.post(['/server/:id/reinstall','/vds/:id/reinstall'], loadVm, express.json
 
 router.post(['/server/:id/settings','/vds/:id/settings'], loadVm, express.json(), async (req,res)=>{
   try {
-    const allowed = ['cpu_model','hostname','start_on_boot','notes','startup_command'];
+    const allowed = ['cpu_model','virt','hostname','start_on_boot','notes','startup_command'];
     const data = {};
     for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
     const vm = await vmService.update(req.vm, data, req.user);

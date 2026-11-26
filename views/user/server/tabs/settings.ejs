@@ -9,17 +9,22 @@
     <div class="field"><label class="label">Operating System</label><select id="reOs" class="input"><% osList.forEach(o=>{ %><option value="<%=o[0]%>"><%=o[0]%></option><% }) %></select></div>
     <button class="btn btn-danger" onclick="reinstall()">Reinstall Server</button>
   </div></div>
-  <div class="card"><div class="card-h"><div class="card-t">CPU Model</div></div><div class="card-b">
-    <p class="muted" style="font-size:13px;margin-top:0">Changes apply after reboot. <b>host</b> passes host CPU features (best when KVM is available). On hosts without KVM, QEMU emulates CPU and performance will be slower.</p>
+  <div class="card"><div class="card-h"><div class="card-t">Virtualization & CPU</div></div><div class="card-b">
+    <p class="muted" style="font-size:13px;margin-top:0">Changes apply after reboot. <b>KVM</b> needs <code>/dev/kvm</code> on the node. <b>QEMU</b> is software emulation (slower, works everywhere). <b>LXC</b> requires LXC runtime installed on node.</p>
+    <div class="field"><label class="label">Virtualization Type</label><select id="virtType" class="input">
+      <% const vt = (currentVm.virt||'qemu'); [['qemu','QEMU (software emulation)'],['kvm','KVM (hardware acceleration)'],['lxc','LXC (container)']].forEach(o=>{ %>
+      <option value="<%=o[0]%>" <%=vt===o[0]?'selected':''%>><%=o[1]%></option>
+      <% }) %>
+    </select></div>
     <div class="field"><label class="label">CPU Model</label><select id="cpuModel" class="input">
       <% const cm = (currentVm.cpu_model||''); const opts=[['','Auto (recommended)'],['host','host (pass-through)'],['qemu64','qemu64 (compatible)'],['max','max (QEMU features)'],['kvm64','kvm64'],['Broadwell','Broadwell'],['Haswell','Haswell'],['IvyBridge','IvyBridge'],['SandyBridge','SandyBridge'],['Skylake-Server','Skylake-Server'],['Cascadelake-Server','Cascadelake-Server'],['EPYC','EPYC'],['EPYC-Rome','EPYC-Rome'],['EPYC-Milan','EPYC-Milan'],['Westmere','Westmere']]; opts.forEach(o=>{ %>
       <option value="<%=o[0]%>" <%=cm===o[0]?'selected':''%>><%=o[1]%></option>
       <% }) %>
     </select></div>
-    <button class="btn" onclick="saveCpuModel()">Save CPU Model</button>
+    <button class="btn" onclick="saveVirtSettings()">Save Virtualization Settings</button>
   </div></div>
 </div>
 <script>
 async function reinstall(){ const os=document.getElementById('reOs').value; if(!await VP.confirm(`Reinstall ${os}? This will erase all disk data.`,{danger:true,okText:'Reinstall'})) return; try{ await VP.api(`/server/<%=currentVm.id%>/reinstall`,{method:'POST',body:{os}}); VP.toast('Reinstall started','success'); location.href='/server/<%=currentVm.id%>/overview'; }catch(e){ VP.toast(e.message,'error'); } }
-async function saveCpuModel(){ const cpu_model=document.getElementById('cpuModel').value; try{ await VP.api(`/server/<%=currentVm.id%>/settings`,{method:'POST',body:{cpu_model}}); VP.toast('CPU model saved. Reboot server to apply.','success'); }catch(e){ VP.toast(e.message,'error'); } }
+async function saveVirtSettings(){ const cpu_model=document.getElementById('cpuModel').value; const virt=document.getElementById('virtType').value; try{ await VP.api(`/server/<%=currentVm.id%>/settings`,{method:'POST',body:{cpu_model,virt}}); VP.toast('Virtualization settings saved. Reboot server to apply.','success'); }catch(e){ VP.toast(e.message,'error'); } }
 </script>

@@ -106,6 +106,15 @@
       <!-- 2. Hardware Resources -->
       <div class="card" style="padding:22px">
         <div class="card-t" style="margin-bottom:18px;font-size:16px">2 · Hardware Sizing &amp; Resources</div>
+        <div class="form-group mb-4">
+          <label style="font-weight:600;font-size:13px">Virtualization Type</label>
+          <select id="fVirt" style="width:100%">
+            <option value="qemu" selected>QEMU (software emulation, works everywhere)</option>
+            <option value="kvm">KVM (hardware acceleration, requires /dev/kvm)</option>
+            <option value="lxc">LXC (container) - requires LXC runtime on node</option>
+          </select>
+          <div class="muted text-sm" style="margin-top:6px">KVM is fastest on supported hosts. QEMU works without KVM. LXC requires node LXC support.</div>
+        </div>
         
         <!-- vCPUs -->
         <div class="form-group mb-4">
@@ -329,6 +338,10 @@
             <span class="mono" id="sumPort">Auto (25501-25600)</span>
           </div>
           <div class="flex-between">
+            <span class="muted">Virtualization</span>
+            <span class="mono" id="sumVirt">QEMU</span>
+          </div>
+          <div class="flex-between">
             <span class="muted">Owner</span>
             <span id="sumOwner"><%= user.username %></span>
           </div>
@@ -446,6 +459,8 @@ function nameChanged(val) {
 document.getElementById('fHost').addEventListener('input', function() {
   this.dataset.manual = 'true';
 });
+const fVirtEl = document.getElementById('fVirt');
+if (fVirtEl) fVirtEl.addEventListener('change', updateSummary);
 
 function genPassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
@@ -628,6 +643,7 @@ async function createVm() {
   fd.append('cpus', document.getElementById('fCpus').value || '2');
   fd.append('disk_size', (document.getElementById('fDisk').value || '20G').toUpperCase());
   fd.append('ssh_port', document.getElementById('fPort').value || '');
+  fd.append('virt', (document.getElementById('fVirt')||{}).value || 'qemu');
   
   const rawFwds = document.getElementById('fFwdCustom').value || '';
   const parsedFwds = rawFwds.split(',').map(s=>s.trim()).filter(Boolean).map(p=>{
