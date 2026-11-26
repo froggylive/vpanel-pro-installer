@@ -1,0 +1,8 @@
+<%- include('../../partials/head', { title: 'Invoices' }) %>
+<%- include('../../partials/sidebar', { activePage:'billing-invoices', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Billing',href:'/billing'},{label:'Invoices'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Invoices</h1><p class="page-sub">Your billing invoices and payment status.</p></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Plan</th><th>Amount</th><th>Status</th><th>Due Date</th><th>Paid At</th></tr></thead><tbody>
+<% if(!invoices.length){ %><tr><td colspan="6"><div class="table-empty">No invoices found.</div></td></tr><% } %>
+<% invoices.forEach(i=>{ %><tr><td class="mono" style="font-weight:500"><%= i.invoice_number %></td><td><%= i.plan_name||'—' %></td><td><%= i.currency %> <%= Number(i.amount||0).toFixed(2) %></td><td><span class="badge <%= i.status==='paid'?'badge-green':i.status==='pending'?'badge-yellow':i.status==='cancelled'?'badge-gray':'badge-red' %>"><%= i.status %></span></td><td class="muted"><%= i.due_date?new Date(i.due_date).toLocaleDateString():'—' %></td><td class="muted"><%= i.paid_at?new Date(i.paid_at).toLocaleString():'—' %></td></tr><% }) %>
+</tbody></table></div></div></main></div><%- include('../../partials/foot') %>

@@ -1,0 +1,9 @@
+<%- include('../partials/head', { title: 'Documentation' }) %>
+<%- include('../partials/sidebar', { activePage:'docs', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Support'},{label:'Documentation'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Documentation</h1><p class="page-sub">Guides and platform information.</p></div></div>
+<div class="grid g-2">
+  <% if(!docs.length){ %><div class="card" style="grid-column:1/-1"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3>No documentation published</h3><p>Administrators can publish docs from the admin panel once available.</p></div></div><% } %>
+  <% docs.forEach(d=>{ %><div class="card"><div class="card-h"><div class="card-t"><%= d.title %></div><span class="badge badge-blue"><%= d.category||'General' %></span></div><div class="card-b" style="white-space:pre-wrap;color:var(--muted);font-size:13px"><%= d.body %></div></div><% }) %>
+</div>
+</main></div><%- include('../partials/foot') %>

@@ -1,0 +1,25 @@
+<%- include('../../partials/head', { title: currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${tab}`, navArea:'user', currentVm }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Server Management',href:'/vds'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:tab[0].toUpperCase()+tab.slice(1)}] }) %>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><h1 class="page-title" style="margin:0"><%= currentVm.name %></h1><span id="statusBadge" class="badge <%= currentVm.status==='running'?'badge-green':currentVm.status==='suspended'?'badge-red':'badge-gray' %>"><%= currentVm.status %></span></div>
+      <p class="page-sub mono">#<%= currentVm.id %> · <%= currentVm.ssh_port?`127.0.0.1:${currentVm.ssh_port}`:'No IP' %> · <%= currentVm.node_name||'Local' %> · <%= currentVm.os_name||currentVm.os_type||'—' %></p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" onclick="VP.power(<%=currentVm.id%>,'start')">Start</button>
+      <button class="btn" onclick="VP.power(<%=currentVm.id%>,'restart')">Restart</button>
+      <button class="btn" onclick="VP.power(<%=currentVm.id%>,'stop')">Shutdown</button>
+      <button class="btn btn-danger" onclick="VP.power(<%=currentVm.id%>,'kill')">Force Stop</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <% [['overview','Overview'],['console','Console'],['resources','Resources'],['networking','Networking'],['storage','Storage'],['backups','Backups'],['snapshots','Snapshots'],['firewall','Firewall'],['settings','Settings'],['activity','Activity Logs']].forEach(([k,l])=>{ %>
+      <a href="/server/<%=currentVm.id%>/<%=k%>" class="<%= tab===k?'active':'' %>"><%= l %></a>
+    <% }) %>
+  </div>
+  <%- include(`./tabs/${tab}`, { currentVm, backups, logs, sshKeys, stats, osList }) %>
+</main></div>
+<script>VP.power=async(id,a)=>{try{await VP.api(`/server/${id}/power`,{method:'POST',body:{action:a}});VP.toast('Command sent: '+a,'success');setTimeout(()=>location.reload(),900)}catch(e){VP.toast(e.message,'error')}}</script>
+<%- include('../../partials/foot') %>

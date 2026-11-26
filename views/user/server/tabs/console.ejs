@@ -1,0 +1,97 @@
+<link rel="stylesheet" href="/vendor/xterm.min.css">
+<script src="/vendor/xterm.min.js"></script>
+<script src="/vendor/addon-fit.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+.console-tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.console-tab{padding:8px 12px;border:1px solid var(--border);background:#111;color:#a1a1aa;border-radius:8px;font-size:13px;cursor:pointer}
+.console-tab.active{background:#fff;color:#000;border-color:#fff}
+#terminal,#bootlog{height:min(62vh,640px);min-height:280px;background:#050505;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:100%}
+#bootlog{display:none;padding:12px;overflow:auto;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#d4d4d8;white-space:pre-wrap;word-break:break-word}
+@media (max-width: 768px){#terminal,#bootlog{height:min(56vh,520px);min-height:240px}}
+.console-status{font-size:12px;color:#a1a1aa}
+.console-status.ok{color:#86efac}.console-status.err{color:#fca5a5}.console-status.warn{color:#fcd34d}
+</style>
+<div class="card">
+  <div class="card-h">
+    <div>
+      <div class="card-t">Server Console</div>
+      <div class="muted2" style="font-size:12px;margin-top:2px">Interactive SSH terminal and live boot logs</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="console-status" id="connStatus">Connecting...</span>
+      <button class="btn btn-sm" id="reconnectBtn">Reconnect</button>
+      <button class="btn btn-sm" id="clearTermBtn">Clear Terminal</button>
+      <button class="btn btn-sm" id="clearBootBtn" style="display:none">Clear Boot Log</button>
+      <button class="btn btn-sm" id="fullscreenBtn">Fullscreen</button>
+    </div>
+  </div>
+  <div class="card-b" style="padding:12px">
+    <div class="console-tabs">
+      <button class="console-tab active" data-view="terminal" id="tabTerminal">Terminal</button>
+      <button class="console-tab" data-view="bootlog" id="tabBootlog">Boot Log</button>
+    </div>
+    <div id="terminal"></div>
+    <pre id="bootlog">Loading boot log...</pre>
+    <div class="muted2" style="font-size:12px;margin-top:10px" id="consoleHint">If the terminal stays disconnected while the VPS is starting, check Boot Log for startup progress.</div>
+  </div>
+</div>
+<script>
+const vmId=<%=currentVm.id%>;
+const token=(document.cookie.match(/(?:^|; )token=([^;]+)/)||[])[1]||'';
+const term=new Terminal({cursorBlink:true,fontSize:13,fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',theme:{background:'#050505',foreground:'#FAFAFA'}});
+const fit=new FitAddon.FitAddon(); term.loadAddon(fit); term.open(document.getElementById('terminal')); fit.fit();
+let socket, activeView='terminal', bootJoined=false;
+const connStatus=document.getElementById('connStatus');
+const bootEl=document.getElementById('bootlog');
+
+function setStatus(text, cls=''){ connStatus.textContent=text; connStatus.className='console-status '+cls; }
+function switchView(view){
+  activeView=view;
+  document.getElementById('tabTerminal').classList.toggle('active', view==='terminal');
+  document.getElementById('tabBootlog').classList.toggle('active', view==='bootlog');
+  document.getElementById('terminal').style.display=view==='terminal'?'block':'none';
+  bootEl.style.display=view==='bootlog'?'block':'none';
+  document.getElementById('clearTermBtn').style.display=view==='terminal'?'':'none';
+  document.getElementById('clearBootBtn').style.display=view==='bootlog'?'':'none';
+  if(view==='terminal'){ setTimeout(()=>{ fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows}); }, 50); }
+  if(view==='bootlog'){ joinBootlog(); setTimeout(()=>{ bootEl.scrollTop=bootEl.scrollHeight; }, 50); }
+}
+function ensureSocket(){
+  if(socket) return socket;
+  socket=io({auth:{token:decodeURIComponent(token)}});
+  socket.on('connect',()=>{
+    setStatus('Connected','ok');
+    socket.emit('console:join',{vmId,sessionId:1,cols:term.cols,rows:term.rows});
+    if(bootJoined) socket.emit('bootlog:join',{vmId});
+  });
+  socket.on('console:ready',()=>setStatus('Terminal ready','ok'));
+  socket.on('console:data',d=>term.write(typeof d==='string'?d:(d.data||'')));
+  socket.on('console:offline',()=>{ setStatus('Server offline / SSH not ready','warn'); term.write('\r\n\x1b[33m[Console] Server is offline or SSH is not ready yet. Check Boot Log for startup progress.\x1b[0m\r\n'); if(!bootJoined) joinBootlog(); });
+  socket.on('console:error',e=>{ const msg=e?.message||e||'Console error'; term.write(`\r\n\x1b[31m[Console] ${msg}\x1b[0m\r\n`); setStatus('Terminal error','err'); if(String(msg).toLowerCase().includes('ssh')){ document.getElementById('consoleHint').textContent='SSH terminal could not connect. The VPS may still be booting; open Boot Log to monitor startup.'; } });
+  socket.on('console:close',()=>setStatus('Terminal disconnected','warn'));
+  socket.on('disconnect',()=>setStatus('Disconnected','warn'));
+
+  socket.on('bootlog:ready',(d)=>{ if(!bootEl.textContent || bootEl.textContent==='Loading boot log...') bootEl.textContent=''; if(d?.status) document.getElementById('consoleHint').textContent=`Boot log connected. VM status: ${d.status}.`; });
+  socket.on('bootlog:data',({text,init})=>{ if(init) bootEl.textContent=text||''; else bootEl.textContent += text||''; if(activeView==='bootlog') bootEl.scrollTop=bootEl.scrollHeight; });
+  socket.on('bootlog:error',(m)=>{ bootEl.textContent += `\n[Boot Log Error] ${m?.message||m}\n`; setStatus('Boot log error','err'); });
+  socket.on('bootlog:cleared',()=>{ bootEl.textContent=''; });
+  socket.on('bootlog:close',()=>{ if(activeView==='bootlog') setStatus('Boot log disconnected','warn'); });
+  return socket;
+}
+function joinBootlog(){ ensureSocket(); if(!bootJoined){ bootJoined=true; socket.emit('bootlog:join',{vmId}); } }
+function connectTerminal(){ ensureSocket(); setStatus('Connecting...',''); socket.emit('console:join',{vmId,sessionId:1,cols:term.cols,rows:term.rows}); }
+term.onData(data=>ensureSocket().emit('console:input',{sessionId:1,data}));
+const fitConsole=()=>{ try{ fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows}); }catch(_){} };
+window.addEventListener('resize',fitConsole);
+if(window.ResizeObserver){ try{ new ResizeObserver(()=>fitConsole()).observe(document.getElementById('terminal')); }catch(_){} }
+setTimeout(fitConsole,100);
+document.getElementById('tabTerminal').onclick=()=>switchView('terminal');
+document.getElementById('tabBootlog').onclick=()=>switchView('bootlog');
+document.getElementById('reconnectBtn').onclick=()=>{ if(activeView==='bootlog'){ bootJoined=false; bootEl.textContent='Loading boot log...'; joinBootlog(); } connectTerminal(); };
+document.getElementById('clearTermBtn').onclick=()=>term.clear();
+document.getElementById('clearBootBtn').onclick=()=>{ if(confirm('Clear boot log files for this server?')) ensureSocket().emit('bootlog:clear',{vmId}); };
+document.getElementById('fullscreenBtn').onclick=()=>{ const el=activeView==='bootlog'?bootEl:document.getElementById('terminal'); if(!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); setTimeout(()=>{ fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows}); if(activeView==='bootlog') bootEl.scrollTop=bootEl.scrollHeight; },200); };
+ensureSocket();
+connectTerminal();
+</script>

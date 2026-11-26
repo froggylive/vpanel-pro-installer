@@ -1,0 +1,19 @@
+<%- include('../../partials/head', { title: 'Profile' }) %>
+<%- include('../../partials/sidebar', { activePage:'account-profile', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Account'},{label:'Profile'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Profile</h1><p class="page-sub">Manage your account information.</p></div></div>
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">Account Information</div></div><div class="card-b">
+    <form method="post" action="/account/profile" enctype="multipart/form-data">
+      <div class="field"><label class="label">Username</label><input class="input" name="username" value="<%= user.username %>" required></div>
+      <div class="field"><label class="label">Email</label><input class="input" value="<%= user.email||'' %>" disabled><div class="hint">Email changes are not exposed in this UI without backend verification flow.</div></div>
+      <div class="field"><label class="label">Avatar</label><input class="input" type="file" name="avatar" accept="image/*"></div>
+      <button class="btn btn-primary" type="submit">Save Profile</button>
+    </form>
+  </div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Recent Logins</div></div><div class="card-b" style="padding:0">
+    <% if(!loginHistory.length){ %><div class="table-empty">No login history.</div><% } %>
+    <% loginHistory.forEach(l=>{ %><div style="padding:12px 18px;border-bottom:1px solid var(--border)"><div style="font-size:13px"><%= l.success?'Successful login':'Failed login' %></div><div class="muted2" style="font-size:12px"><%= l.ip||'—' %> · <%= new Date(l.created_at||Date.now()).toLocaleString() %></div></div><% }) %>
+  </div></div>
+</div>
+</main></div><%- include('../../partials/foot') %>

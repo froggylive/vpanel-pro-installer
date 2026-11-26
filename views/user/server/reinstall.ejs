@@ -1,0 +1,23 @@
+<%- include('../../partials/head', { title: 'Reinstall - ' + currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${currentVm.id}.reinstall`, navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { navArea:'user', breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:'Reinstall'}] }) %>
+<main class="content">
+<style>.server-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}.server-tabs a{padding:10px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}.server-tabs a.active{color:#fff;border-bottom-color:var(--accent)}.os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.os-card{border:1px solid var(--border);background:#111111;border-radius:10px;padding:14px;cursor:pointer}.os-card.selected{border-color:var(--accent);background:rgba(255,255,255,.08)}</style>
+<div class="page-head"><div><h1 class="page-title">Reinstall OS</h1><p class="page-sub">Reinstall the operating system for <%= currentVm.name %>.</p></div></div>
+<div class="server-tabs"><a href="/server/<%=currentVm.id%>">Overview</a><a href="/server/<%=currentVm.id%>/console">Console</a><a href="/server/<%=currentVm.id%>/files">Files</a><a href="/server/<%=currentVm.id%>/network">Network</a><a href="/server/<%=currentVm.id%>/backups">Backups</a><a href="/server/<%=currentVm.id%>/snapshots">Snapshots</a><a href="/server/<%=currentVm.id%>/reinstall" class="active">Reinstall</a><a href="/server/<%=currentVm.id%>/activity">Activity</a></div>
+<div class="card"><div class="card-h"><div class="card-t">Select Operating System</div></div><div class="card-b">
+  <div class="alert" style="padding:12px 14px;border-radius:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:#FCA5A5;margin-bottom:18px;font-size:13px"><strong>Warning:</strong> Reinstalling will erase all data on the server disk. Back up important data before continuing.</div>
+  <div class="os-grid" id="osGrid">
+    <% osList.forEach(o => { %><div class="os-card" data-os="<%= o[0] %>" onclick="selectOs(this)"><div style="font-weight:600;margin-bottom:4px"><%= o[0] %></div><div class="muted" style="font-size:12px"><%= o[1] %> / <%= o[2] %></div></div><% }) %>
+  </div>
+  <div style="margin-top:20px;display:flex;gap:10px"><button class="btn btn-danger" onclick="doReinstall()"><i data-lucide="refresh-cw"></i>Reinstall Server</button></div>
+</div></div>
+<script>
+const vmId=<%=currentVm.id%>; let selectedOs='';
+function selectOs(el){ document.querySelectorAll('.os-card').forEach(c=>c.classList.remove('selected')); el.classList.add('selected'); selectedOs=el.dataset.os; }
+async function doReinstall(){ if(!selectedOs) return VP.toast('Select an OS','error'); if(!await VP.confirm(`Reinstall ${selectedOs}? This will erase all server data.`,{danger:true,title:'Confirm Reinstall',okText:'Reinstall'})) return; try{ await VP.api(`/server/${vmId}/reinstall`,{method:'POST',body:{os:selectedOs}}); VP.toast('Reinstall started','success'); location.href=`/server/${vmId}`; }catch(e){VP.toast(e.message,'error');} }
+</script>
+</main>
+</div>
+<%- include('../../partials/foot') %>

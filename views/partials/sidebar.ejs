@@ -1,0 +1,74 @@
+<%
+const isAdmin = user && (user.role === 'admin' || user.root_admin);
+const vmObj = (typeof currentVm !== 'undefined' && currentVm) ? currentVm : ((typeof vm !== 'undefined' && vm) ? vm : null);
+const pageKey = (typeof activePage !== 'undefined' && activePage) ? activePage : ((typeof page !== 'undefined' && page) ? page : '');
+const navAreaVal = (typeof navArea !== 'undefined' && navArea) ? navArea : ((isAdmin && String(pageKey).startsWith('admin')) ? 'admin' : 'user');
+const isAdminView = navAreaVal === 'admin';
+function act(k){ return pageKey===k ? 'active' : ''; }
+const I = {
+  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  srv:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  key:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+  term:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+  act:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  set:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  net:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  node:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+  loc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  snap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  bak:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  fw:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  ip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/></svg>',
+};
+function link(href, key, icon, label){ return `<a href="${href}" class="nav-link ${act(key)}" data-tip="${label}"><span class="v-icon">${icon}</span><span class="nav-label">${label}</span></a>`; }
+%>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><span class="brand-mark" style="display:grid;place-items:center;background:#fff;color:#000;font-size:12px;font-weight:800;">V</span><span class="brand-name">vPanel</span><button class="sidebar-collapse" onclick="VP.toggleSidebar()" title="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+  <div class="sidebar-scroll">
+  <% if (isAdminView) { %>
+    <div class="nav-section-title">Overview</div>
+    <%- link('/admin','admin-dashboard',I.dash,'Dashboard') %>
+    <div class="nav-section-title">Infrastructure</div>
+    <%- link('/admin/nodes','admin-nodes',I.node,'Nodes') %>
+    <%- link('/admin/locations','admin-locations',I.loc,'Locations') %>
+    <%- link('/admin/allocations','admin-allocations',I.net,'Allocations') %>
+    <%- link('/admin/operating-systems','admin-os',I.srv,'Operating Systems') %>
+    <div class="nav-section-title">Management</div>
+    <%- link('/admin/servers','admin-servers',I.srv,'Servers') %>
+    <%- link('/admin/users','admin-users',I.user,'Users') %>
+    <%- link('/admin/servers/create','admin-create-server',I.plus,'Create Server') %>
+    <%- link('/admin/activity','admin-activity',I.act,'Server Activity') %>
+    <div class="nav-section-title">System</div>
+    <%- link('/admin/api','admin-api',I.key,'API Management') %>
+    <%- link('/admin/settings','admin-settings',I.set,'Settings') %>
+    <%- link('/admin/audit','admin-audit',I.act,'Activity Logs') %>
+    <div class="nav-section-title">Switch</div>
+    <%- link('/dashboard','dashboard',I.user,'User View') %>
+  <% } else { %>
+    <div class="nav-section-title">Overview</div>
+    <%- link('/dashboard','dashboard',I.dash,'Dashboard') %>
+    <div class="nav-section-title">VDS Management</div>
+    <%- link('/servers','servers',I.srv,'My VDS') %>
+    <%- link('/snapshots','snapshots',I.snap,'Snapshots') %>
+    <%- link('/backups','backups',I.bak,'Backups') %>
+    <%- link('/network','network',I.net,'Network') %>
+    <%- link('/firewall','firewall',I.fw,'Firewall') %>
+    <%- link('/account/ssh-keys','account-ssh-keys',I.shield,'SSH Keys') %>
+    <%- link('/ip-addresses','ip-addresses',I.ip,'IP Addresses') %>
+    <% if (vmObj) { %><div class="nav-section-title">Current VDS</div><a href="/server/<%=vmObj.id%>" class="nav-link <%= String(pageKey).startsWith('server.')?'active':'' %>" data-tip="<%=vmObj.name%>"><span class="v-icon"><%- I.term %></span><span class="nav-label"><%= vmObj.name %></span></a><% } %>
+    <div class="nav-section-title">Account</div>
+    <%- link('/account/api-keys','account-api-keys',I.key,'API Keys') %>
+    <%- link('/account/profile','account-profile',I.user,'Profile') %>
+    <%- link('/account/security','account-security',I.shield,'Security') %>
+    <%- link('/account/settings','account-settings',I.set,'Settings') %>
+    <%- link('/activity','account-activity',I.act,'Activity Logs') %>
+    <% if (isAdmin) { %><div class="nav-section-title">Administration</div><%- link('/admin','admin-dashboard',I.shield,'Admin Panel') %><% } %>
+  <% } %>
+  </div>
+  <div class="sidebar-foot"><a href="/logout" class="nav-link" data-tip="Logout"><span class="v-icon"><%- I.logout %></span><span class="nav-label">Logout</span></a></div>
+</aside>
+<div class="sidebar-overlay" onclick="VP.closeSidebar()"></div>

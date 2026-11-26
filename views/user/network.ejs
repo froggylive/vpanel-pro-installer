@@ -1,0 +1,8 @@
+<%- include('../partials/head', { title: 'Network' }) %>
+<%- include('../partials/sidebar', { activePage:'network', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'Network'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Network</h1><p class="page-sub">Network assignments for your VDS instances.</p></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>VDS</th><th>IPv4 / SSH</th><th>IPv6</th><th>Gateway</th><th>Mode</th></tr></thead><tbody>
+<% if(!vms.length){ %><tr><td colspan="5"><div class="table-empty">No VDS instances.</div></td></tr><% } %>
+<% vms.forEach(vm=>{ %><tr><td><a href="/vds/<%=vm.id%>/networking" style="font-weight:500"><%= vm.name %></a><div class="muted2 mono">#<%=vm.id%></div></td><td class="mono"><%= vm.ssh_port?`127.0.0.1:${vm.ssh_port}`:'—' %></td><td class="muted">Not assigned</td><td class="mono">10.0.2.2</td><td class="muted">QEMU user networking</td></tr><% }) %>
+</tbody></table></div></div></main></div><%- include('../partials/foot') %>

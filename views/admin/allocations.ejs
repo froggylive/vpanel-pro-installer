@@ -1,0 +1,16 @@
+<%- include('../partials/head', { title: 'Allocations' }) %>
+<%- include('../partials/sidebar', { activePage:'admin-allocations', navArea:'admin' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Admin',href:'/admin'},{label:'Allocations'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">Allocations</h1><p class="page-sub">IP and port allocations currently observed from servers/nodes.</p></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Server</th><th>Node</th><th>Address / SSH</th><th>VNC</th><th>Status</th></tr></thead><tbody>
+    <% if(!vms.length){ %><tr><td colspan="5"><div class="table-empty">No allocations found.</div></td></tr><% } %>
+    <% vms.forEach(v=>{ const node=nodes.find(n=>String(n.id)===String(v.node_id)); %><tr>
+      <td><div style="font-weight:500"><%= v.name %></div><div class="muted2 mono">#<%= v.id %></div></td>
+      <td class="muted"><%= node?.name || v.node_name || 'Local' %></td>
+      <td class="mono"><%= v.ssh_port ? `127.0.0.1:${v.ssh_port}` : '—' %></td>
+      <td class="mono muted"><%= v.vnc_port || '—' %></td>
+      <td><span class="badge <%= v.status==='running'?'badge-green':'badge-gray' %>"><%= v.status %></span></td>
+    </tr><% }) %>
+  </tbody></table></div></div>
+</main></div><%- include('../partials/foot') %>

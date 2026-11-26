@@ -1,0 +1,8 @@
+<%- include('../partials/head', { title: 'IP Addresses' }) %>
+<%- include('../partials/sidebar', { activePage:'ip-addresses', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'IP Addresses'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">IP Addresses</h1><p class="page-sub">Assigned network addresses for your VDS instances.</p></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>VDS</th><th>Address</th><th>Type</th><th>Gateway</th><th>Notes</th></tr></thead><tbody>
+<% if(!vms.length){ %><tr><td colspan="5"><div class="table-empty">No IP assignments.</div></td></tr><% } %>
+<% vms.forEach(vm=>{ %><tr><td><%= vm.name %></td><td class="mono"><%= vm.ssh_port?`127.0.0.1:${vm.ssh_port}`:'—' %></td><td><span class="badge badge-blue">IPv4/NAT</span></td><td class="mono">10.0.2.2</td><td class="muted">SSH port forward</td></tr><% }) %>
+</tbody></table></div></div></main></div><%- include('../partials/foot') %>

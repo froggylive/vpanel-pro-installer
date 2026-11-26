@@ -1,0 +1,12 @@
+<%- include('../../partials/head', { title: 'Snapshots - ' + currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${currentVm.id}.snapshots`, navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { navArea:'user', breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:'Snapshots'}] }) %>
+<main class="content">
+<style>.server-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}.server-tabs a{padding:10px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}.server-tabs a.active{color:#fff;border-bottom-color:var(--accent)}</style>
+<div class="page-head"><div><h1 class="page-title">Snapshots</h1><p class="page-sub">VM disk snapshots for <%= currentVm.name %>.</p></div></div>
+<div class="server-tabs"><a href="/server/<%=currentVm.id%>">Overview</a><a href="/server/<%=currentVm.id%>/console">Console</a><a href="/server/<%=currentVm.id%>/files">Files</a><a href="/server/<%=currentVm.id%>/network">Network</a><a href="/server/<%=currentVm.id%>/backups">Backups</a><a href="/server/<%=currentVm.id%>/snapshots" class="active">Snapshots</a><a href="/server/<%=currentVm.id%>/reinstall">Reinstall</a><a href="/server/<%=currentVm.id%>/activity">Activity</a></div>
+<div class="card"><div class="card-b"><div class="empty-state"><div class="empty-icon"><i data-lucide="camera"></i></div><h3>Snapshots not available</h3><p>QEMU snapshot management is not currently exposed by this backend. Use Backups for full disk recovery.</p><a href="/server/<%=currentVm.id%>/backups" class="btn btn-primary">Go to Backups</a></div></div></div>
+</main>
+</div>
+<%- include('../../partials/foot') %>

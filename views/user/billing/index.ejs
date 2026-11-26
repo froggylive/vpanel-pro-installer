@@ -1,0 +1,19 @@
+<%- include('../../partials/head', { title: 'Billing' }) %>
+<%- include('../../partials/sidebar', { activePage:'billing', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Billing'},{label:'Orders'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">Billing & Orders</h1><p class="page-sub">Plans and billing records from your account.</p></div></div>
+  <div class="grid g-3" style="margin-bottom:20px">
+    <div class="card stat"><div><div class="stat-label">Unpaid Invoices</div><div class="stat-val"><%= invoices.filter(i=>i.status!=='paid').length %></div></div></div>
+    <div class="card stat"><div><div class="stat-label">Paid Total</div><div class="stat-val">$<%= invoices.filter(i=>i.status==='paid').reduce((a,i)=>a+Number(i.amount||0),0).toFixed(2) %></div></div></div>
+    <div class="card stat"><div><div class="stat-label">Available Plans</div><div class="stat-val"><%= plans.length %></div></div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="card-h"><div class="card-t">Plans</div></div><div class="table-wrap"><table><thead><tr><th>Plan</th><th>Resources</th><th>Bandwidth</th><th>Price</th><th>Status</th></tr></thead><tbody>
+    <% if(!plans.length){ %><tr><td colspan="5"><div class="table-empty">No plans configured.</div></td></tr><% } %>
+    <% plans.forEach(p=>{ %><tr><td><div style="font-weight:500"><%= p.name %></div><div class="muted2" style="font-size:12px"><%= p.description||'' %></div></td><td class="muted"><%= p.cpus %> vCPU · <%= (Number(p.memory)/1024).toFixed(1) %> GB · <%= p.disk %> GB</td><td class="muted"><%= p.bandwidth %> GB</td><td style="font-weight:600"><%= p.currency %> <%= Number(p.price_monthly).toFixed(2) %>/mo</td><td><span class="badge <%= p.is_active?'badge-green':'badge-gray' %>"><%= p.is_active?'active':'inactive' %></span></td></tr><% }) %>
+  </tbody></table></div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Recent Invoices</div><a href="/billing/invoices" class="btn btn-sm btn-ghost">View all</a></div><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Plan</th><th>Amount</th><th>Status</th><th>Due</th></tr></thead><tbody>
+    <% if(!invoices.length){ %><tr><td colspan="5"><div class="table-empty">No invoices.</div></td></tr><% } %>
+    <% invoices.slice(0,10).forEach(i=>{ %><tr><td class="mono"><%= i.invoice_number %></td><td><%= i.plan_name||'—' %></td><td><%= i.currency %> <%= Number(i.amount||0).toFixed(2) %></td><td><span class="badge <%= i.status==='paid'?'badge-green':i.status==='pending'?'badge-yellow':'badge-gray' %>"><%= i.status %></span></td><td class="muted"><%= i.due_date?new Date(i.due_date).toLocaleDateString():'—' %></td></tr><% }) %>
+  </tbody></table></div></div>
+</main></div><%- include('../../partials/foot') %>

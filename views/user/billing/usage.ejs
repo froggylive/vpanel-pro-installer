@@ -1,0 +1,14 @@
+<%- include('../../partials/head', { title: 'Usage' }) %>
+<%- include('../../partials/sidebar', { activePage:'billing-usage', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Billing',href:'/billing'},{label:'Usage'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Resource Usage</h1><p class="page-sub">Allocated and observed resource usage from the backend.</p></div></div>
+<div class="grid g-3" style="margin-bottom:20px">
+  <% const r=resources||{}; [['RAM',r.ram,'GB'],['CPU',r.cpu,'Cores'],['Disk',r.disk,'GB']].forEach(([label,val,unit])=>{ const pct=Math.min(100,Number(val?.percent||0)); %>
+  <div class="card"><div class="card-b"><div style="display:flex;justify-content:space-between"><span class="muted"><%=label%></span><span style="font-weight:600"><%= val?.used ?? '—' %> / <%= val?.allocated ?? '—' %> <%=unit%></span></div><div class="progress" style="margin-top:10px"><span style="width:<%=pct%>%"></span></div><div class="muted2" style="font-size:12px;margin-top:8px"><%=pct.toFixed(1)%>% used</div></div></div>
+  <% }) %>
+</div>
+<div class="card"><div class="card-h"><div class="card-t">Per-VDS Allocation</div></div><div class="table-wrap"><table><thead><tr><th>VDS</th><th>Status</th><th>CPU</th><th>RAM</th><th>Disk</th></tr></thead><tbody>
+<% if(!vms.length){ %><tr><td colspan="5"><div class="table-empty">No VDS instances.</div></td></tr><% } %>
+<% vms.forEach(vm=>{ %><tr><td><div style="font-weight:500"><%=vm.name%></div><div class="muted2 mono">#<%=vm.id%></div></td><td><span class="badge <%= vm.status==='running'?'badge-green':'badge-gray' %>"><%=vm.status%></span></td><td><%=vm.cpus%> vCPU</td><td><%= (Number(vm.memory||0)/1024).toFixed(1) %> GB</td><td><%= vm.disk_size %></td></tr><% }) %>
+</tbody></table></div></div>
+</main></div><%- include('../../partials/foot') %>

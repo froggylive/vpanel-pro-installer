@@ -1,0 +1,150 @@
+<%- include('../partials/head', { title: 'Nodes' }) %>
+<%- include('../partials/sidebar', { activePage:'admin-nodes', navArea:'admin' }) %>
+<div class="main-wrap">
+<%- include('../partials/topbar', { breadcrumbs:[{label:'Admin',href:'/admin'},{label:'Nodes'}] }) %>
+<main class="content">
+  <%
+    const nodeList = (typeof nodes !== 'undefined' && nodes) || [];
+    const ns = (typeof nodeStats !== 'undefined' && nodeStats) || {};
+    const filterVal = (typeof filterQuery !== 'undefined' && filterQuery) || '';
+    const host = ns.host || ns;
+  %>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Nodes</h1>
+      <p class="page-sub">Manage your hypervisor nodes and compute infrastructure.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="/admin/nodes/create">+ Create Node</a>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-h">
+      <div class="card-t">Mass Actions</div>
+      <span id="ma-selected-count" class="badge badge-gray">0 selected</span>
+    </div>
+    <div class="card-b">
+      <div class="grid g-3" style="gap:16px">
+        <div>
+          <div class="label">Wings Configuration</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="ma-app-name" class="input" placeholder="Application name" />
+            <button id="ma-btn-appname" type="button" class="btn btn-sm" onclick="massApplyAppName()" disabled>Apply</button>
+          </div>
+          <div id="ma-appname-result" class="hint"></div>
+        </div>
+        <div>
+          <div class="label">Wings Service</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="ma-btn-start" type="button" class="btn btn-sm" onclick="massWingsAction('start')" disabled>Start</button>
+            <button id="ma-btn-restart" type="button" class="btn btn-sm" onclick="massWingsAction('restart')" disabled>Restart</button>
+            <button id="ma-btn-stop" type="button" class="btn btn-sm btn-danger" onclick="massWingsAction('stop')" disabled>Stop</button>
+          </div>
+          <div id="ma-wings-result" class="hint"></div>
+        </div>
+        <div>
+          <div class="label">Selection</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-sm" onclick="massSelectAll()">Select all</button>
+            <button type="button" class="btn btn-sm" onclick="massDeselectAll()">Deselect all</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-h" style="gap:12px;flex-wrap:wrap">
+      <div class="card-t">Node List (<span id="nodeCount"><%= nodeList.length %></span>)</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+        <input type="search" id="nodeFilter" class="input" value="<%= filterVal %>" placeholder="Search nodes..." style="width:260px;max-width:100%"/>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="nodeTable">
+        <thead>
+          <tr>
+            <th style="width:36px;text-align:center"><input type="checkbox" id="ma-check-all" onclick="massToggleAll(this.checked)"/></th>
+            <th>Node Name</th>
+            <th>Address</th>
+            <th>Location</th>
+            <th>Memory</th>
+            <th>Disk</th>
+            <th style="text-align:center">Servers</th>
+            <th style="text-align:center">Limit</th>
+            <th style="text-align:center">SSL</th>
+            <th style="text-align:center">Public</th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!nodeList.length) { %>
+            <tr><td colspan="11"><div class="table-empty">No nodes configured. <a href="/admin/nodes/create" style="color:#fff;text-decoration:underline">Create a node</a>.</div></td></tr>
+          <% } %>
+          <% for (const n of nodeList) {
+               const locName = n.location ? (n.location.short || n.location.name || n.location) : 'Local';
+               const isSsl = String(n.scheme || '').toLowerCase() === 'https';
+               const memTotal = Number(n.memory || n.ram_total || 0);
+               const memAlloc = Number(n.allocated_memory || n.ram_allocated || 0);
+               const diskTotal = Number(n.disk || n.disk_total || 0);
+               const diskAlloc = Number(n.allocated_disk || n.disk_allocated || 0);
+          %>
+            <tr class="node-row" data-search="<%= `${n.name||''} ${n.fqdn||n.hostname||''} ${locName}`.toLowerCase() %>">
+              <td style="text-align:center"><input type="checkbox" class="ma-node-check" data-node-id="<%= n.id %>" data-node-name="<%= n.name %>" onchange="massUpdateUI()"/></td>
+              <td>
+                <a href="/admin/nodes/<%= n.id %>" style="font-weight:600;color:#fff"><%= n.name %></a>
+                <div class="muted2 mono" style="font-size:11px"><%= n.scheme || 'http' %>://<%= n.fqdn || n.hostname || '—' %>:<%= n.daemonListen || n.port || 8080 %></div>
+              </td>
+              <td class="mono muted"><%= n.fqdn || n.hostname || n.ip || '—' %></td>
+              <td><span class="badge badge-gray"><%= locName %></span></td>
+              <td class="muted"><%= memAlloc %> / <%= memTotal %> MB</td>
+              <td class="muted"><%= diskAlloc %> / <%= diskTotal %> MB</td>
+              <td style="text-align:center"><span class="badge badge-gray"><%= n.servers_count || n.vm_count || 0 %></span></td>
+              <td style="text-align:center" class="muted"><%= n.server_limit || '—' %></td>
+              <td style="text-align:center"><span class="badge <%= isSsl ? 'badge-green' : 'badge-gray' %>"><%= isSsl ? 'SSL' : 'HTTP' %></span></td>
+              <td style="text-align:center"><span class="badge <%= n.public ? 'badge-green' : 'badge-gray' %>"><%= n.public ? 'Public' : 'Private' %></span></td>
+              <td style="text-align:right">
+                <div style="display:flex;gap:6px;justify-content:flex-end">
+                  <a class="btn btn-sm" href="/admin/nodes/<%= n.id %>">Manage</a>
+                  <a class="btn btn-sm" href="/admin/nodes/<%= n.id %>#settings">Settings</a>
+                </div>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-t">Primary Host Telemetry</div><span class="badge <%= (host.status||'online')==='online'?'badge-green':'badge-red' %>"><%= host.status || 'Online' %></span></div>
+    <div class="card-b">
+      <div class="grid g-4">
+        <div class="card" style="background:#111"><div class="card-b"><div class="muted2" style="font-size:12px">Host CPU Usage</div><div style="font-size:24px;font-weight:700;margin:6px 0"><%= host.cpu?.percent ?? host.cpu_percent ?? '—' %><% if(host.cpu?.percent!=null||host.cpu_percent!=null){ %>%<% } %></div><div class="progress"><span style="width:<%= Math.min(100,Number(host.cpu?.percent||host.cpu_percent||0)) %>%"></span></div><div class="muted2" style="font-size:12px;margin-top:8px"><%= host.cpu?.cores_count || host.cpu?.cores || host.cores || '—' %> cores · Load <%= (host.cpu?.load_avg||host.load_avg||[]).join(', ') || 'Unavailable' %></div></div></div>
+        <div class="card" style="background:#111"><div class="card-b"><div class="muted2" style="font-size:12px">Host Memory Usage</div><div style="font-size:24px;font-weight:700;margin:6px 0"><%= host.memory?.percent ?? '—' %><% if(host.memory?.percent!=null){ %>%<% } %></div><div class="progress"><span style="width:<%= Math.min(100,Number(host.memory?.percent||0)) %>%"></span></div><div class="muted2" style="font-size:12px;margin-top:8px"><%= host.memory ? `${host.memory.used_mb} / ${host.memory.total_mb} MB` : 'Unavailable' %></div></div></div>
+        <div class="card" style="background:#111"><div class="card-b"><div class="muted2" style="font-size:12px">Disk Usage</div><div style="font-size:24px;font-weight:700;margin:6px 0"><%= host.disk?.percent ?? '—' %><% if(host.disk?.percent!=null){ %>%<% } %></div><div class="progress"><span style="width:<%= Math.min(100,Number(host.disk?.percent||0)) %>%"></span></div><div class="muted2" style="font-size:12px;margin-top:8px"><%= host.disk ? `${host.disk.used_gb} / ${host.disk.total_gb} GB` : 'Unavailable' %></div></div></div>
+        <div class="card" style="background:#111"><div class="card-b"><div class="muted2" style="font-size:12px">Host Uptime</div><div style="font-size:24px;font-weight:700;margin:6px 0"><%= host.uptime_seconds!=null ? Math.floor(host.uptime_seconds/3600)+'h '+Math.floor((host.uptime_seconds%3600)/60)+'m' : 'Unavailable' %></div><div class="muted2" style="font-size:12px;margin-top:8px">Process: <%= host.process_uptime!=null ? Math.floor(host.process_uptime/60)+'m' : '—' %></div></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+<script>
+document.getElementById('nodeFilter')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim(); let count=0;
+  document.querySelectorAll('.node-row').forEach(row => {
+    const match = !q || (row.dataset.search||'').includes(q);
+    row.style.display = match ? '' : 'none'; if (match) count++;
+  });
+  const el=document.getElementById('nodeCount'); if(el) el.textContent=count;
+});
+function massSelected(){ return [...document.querySelectorAll('.ma-node-check:checked')].map(c=>({id:c.dataset.nodeId,name:c.dataset.nodeName})); }
+function massUpdateUI(){ const n=massSelected().length; document.getElementById('ma-selected-count').textContent=n+' selected'; ['ma-btn-appname','ma-btn-start','ma-btn-restart','ma-btn-stop'].forEach(id=>{const b=document.getElementById(id); if(b) b.disabled=n===0;}); }
+function massToggleAll(checked){ document.querySelectorAll('.ma-node-check').forEach(c=>{ if(c.closest('tr').style.display!=='none') c.checked=checked; }); massUpdateUI(); }
+function massSelectAll(){ massToggleAll(true); document.getElementById('ma-check-all').checked=true; }
+function massDeselectAll(){ document.querySelectorAll('.ma-node-check,#ma-check-all').forEach(c=>c.checked=false); massUpdateUI(); }
+async function massApplyAppName(){ const name=document.getElementById('ma-app-name').value.trim(); const ids=massSelected().map(x=>x.id); if(!name||!ids.length) return; const r=document.getElementById('ma-appname-result'); r.textContent='Applying...'; try{ await VP.api('/admin/nodes/mass/app-name',{method:'POST',body:{node_ids:ids,app_name:name}}); r.textContent='Applied.'; VP.toast('Application name applied','success'); }catch(e){ r.textContent=e.message; VP.toast(e.message,'error'); } }
+async function massWingsAction(action){ const ids=massSelected().map(x=>x.id); if(!ids.length) return; const r=document.getElementById('ma-wings-result'); r.textContent=`Running ${action}...`; try{ await VP.api('/admin/nodes/mass/wings-control',{method:'POST',body:{node_ids:ids,action}}); r.textContent=`${action} command sent.`; VP.toast(`Wings ${action} sent`,'success'); }catch(e){ r.textContent=e.message; VP.toast(e.message,'error'); } }
+</script>
+<%- include('../partials/foot') %>

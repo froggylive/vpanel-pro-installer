@@ -1,0 +1,43 @@
+<%- include('../partials/head', { title: 'Create VDS' }) %>
+<%- include('../partials/sidebar', { activePage:'create-server', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'Create VDS'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">Create VDS</h1><p class="page-sub">Provision a new virtual server with your allocated resources.</p></div></div>
+  <div class="grid g-2" style="align-items:start">
+    <div class="card"><div class="card-h"><div class="card-t">Configuration</div></div><div class="card-b">
+      <form id="createForm">
+        <div class="form-grid">
+          <div class="field"><label class="label">Server Name</label><input class="input" name="name" required placeholder="my-server"></div>
+          <div class="field"><label class="label">Hostname</label><input class="input" name="hostname" placeholder="my-server.local"></div>
+        </div>
+        <div class="field"><label class="label">Node</label><select class="input" name="node_id"><option value="">Local / default</option><% nodes.forEach(n=>{ %><option value="<%=n.id%>"><%=n.name%> <%= n.location?`(${n.location})`:'' %></option><% }) %></select></div>
+        <div class="field"><label class="label">Operating System</label><select class="input" name="os" required><% osList.forEach(o=>{ %><option value="<%=o[0]%>"><%=o[0]%></option><% }) %></select></div>
+        <div class="form-grid">
+          <div class="field"><label class="label">RAM (GB)</label><input class="input" name="memory_gb" type="number" min="0.5" step="0.5" value="1" required></div>
+          <div class="field"><label class="label">CPU (vCores)</label><input class="input" name="cpus" type="number" min="1" step="1" value="1" required></div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label class="label">Disk (GB)</label><input class="input" name="disk_gb" type="number" min="5" step="1" value="20" required></div>
+          <div class="field"><label class="label">SSH Key</label><select class="input" name="ssh_key_id"><option value="">None (password)</option><% sshKeys.forEach(k=>{ %><option value="<%=k.id%>"><%=k.name%></option><% }) %></select></div>
+        </div>
+        <div class="field"><label class="label">Root Password (optional)</label><input class="input" name="password" placeholder="Leave blank to auto-generate"></div>
+        <label style="display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px;margin-bottom:16px"><input type="checkbox" name="start_on_boot"> Start on boot</label>
+        <div id="err" style="display:none;color:#fca5a5;background:var(--red-soft);border:1px solid rgba(239,68,68,.2);padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:13px"></div>
+        <button class="btn btn-primary" type="submit">Create VDS</button>
+      </form>
+    </div></div>
+    <div class="card"><div class="card-h"><div class="card-t">Resource Quota</div></div><div class="card-b">
+      <div class="kv"><span class="k">RAM Limit</span><span class="v"><%= (quota.ram_mb/1024).toFixed(1) %> GB</span></div>
+      <div class="kv"><span class="k">CPU Limit</span><span class="v"><%= quota.cpu_cores %> cores</span></div>
+      <div class="kv"><span class="k">Disk Limit</span><span class="v"><%= quota.disk_gb %> GB</span></div>
+      <div class="kv"><span class="k">RAM Used</span><span class="v"><%= usage?.ram?.vmAllocated ?? '—' %> GB</span></div>
+      <div class="kv"><span class="k">CPU Used</span><span class="v"><%= usage?.cpu?.vmAllocated ?? '—' %> cores</span></div>
+      <div class="kv"><span class="k">Disk Used</span><span class="v"><%= usage?.disk?.vmAllocated ?? '—' %> GB</span></div>
+      <div class="hint">Creation is validated by the backend. Requests exceeding quota or node capacity are rejected.</div>
+    </div></div>
+  </div>
+</main></div>
+<script>
+createForm.onsubmit=async e=>{ e.preventDefault(); err.style.display='none'; const fd=new FormData(e.target); const body=Object.fromEntries(fd.entries()); body.start_on_boot=!!fd.get('start_on_boot'); const btn=e.target.querySelector('button'); btn.disabled=true; btn.textContent='Creating...'; try{ const r=await VP.api('/create-server',{method:'POST',body}); VP.toast('VDS created','success'); location.href=r.redirect||('/server/'+r.vmId); }catch(ex){ err.textContent=ex.message; err.style.display='block'; btn.disabled=false; btn.textContent='Create VDS'; } };
+</script>
+<%- include('../partials/foot') %>

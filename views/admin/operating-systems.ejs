@@ -1,0 +1,38 @@
+<%- include('../partials/head', { title: 'Operating Systems' }) %>
+<%- include('../partials/sidebar', { activePage:'admin-os', navArea:'admin' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Admin',href:'/admin'},{label:'Operating Systems'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">Operating Systems</h1><p class="page-sub">Available OS images for virtual machine provisioning.</p></div></div>
+  <div class="card" style="margin-bottom:16px"><div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-sm btn-primary osf active" data-f="all" onclick="filterOs('all',this)">All</button>
+    <button class="btn btn-sm osf" data-f="ubuntu" onclick="filterOs('ubuntu',this)">Ubuntu</button>
+    <button class="btn btn-sm osf" data-f="debian" onclick="filterOs('debian',this)">Debian</button>
+    <button class="btn btn-sm osf" data-f="fedora" onclick="filterOs('fedora',this)">Fedora</button>
+    <button class="btn btn-sm osf" data-f="rhel" onclick="filterOs('rhel',this)">RHEL/Enterprise</button>
+  </div></div>
+  <div class="grid g-3" id="osGrid">
+    <% osList.forEach(o=>{ const name=Array.isArray(o)?o[0]:o.name; const distro=String(Array.isArray(o)?o[1]:o.type||'').toLowerCase(); const ver=Array.isArray(o)?o[2]:o.version||''; 
+      let img='/images/os/linux.svg', family=distro;
+      if(distro.includes('ubuntu')){img='/images/os/ubuntu.svg';family='ubuntu';}
+      else if(distro.includes('debian')){img='/images/os/debian.svg';family='debian';}
+      else if(distro.includes('fedora')){img='/images/os/fedora.svg';family='fedora';}
+      else if(distro.includes('centos')){img='/images/os/centos.svg';family='rhel';}
+      else if(distro.includes('alma')){img='/images/os/almalinux.svg';family='rhel';}
+      else if(distro.includes('rocky')){img='/images/os/rocky.svg';family='rhel';}
+      else if(distro.includes('oracle')){img='/images/os/oracle.svg';family='rhel';}
+      else if(distro.includes('alpine')){img='/images/os/alpine.svg';family='rhel';}
+      else if(distro.includes('arch')){img='/images/os/arch.svg';family='rhel';}
+      else if(distro.includes('opensuse')||distro.includes('suse')){img='/images/os/opensuse.svg';family='rhel';}
+    %>
+    <div class="card os-card" data-family="<%= family %>"><div class="card-b" style="display:flex;gap:14px;align-items:center">
+      <div style="width:44px;height:44px;border-radius:12px;background:#161616;border:1px solid var(--border);display:grid;place-items:center;flex:0 0 44px;overflow:hidden"><img src="<%= img %>" alt="<%= name %>" style="width:28px;height:28px;object-fit:contain"></div>
+      <div style="min-width:0"><div style="font-weight:600;color:#fff"><%= name %></div><div class="muted2" style="font-size:12px"><%= ver %> · x86_64</div></div>
+      <span class="badge badge-green" style="margin-left:auto">Available</span>
+    </div></div>
+    <% }) %>
+  </div>
+</main></div>
+<script>
+function filterOs(f,btn){ document.querySelectorAll('.osf').forEach(b=>{b.classList.remove('btn-primary');b.classList.add('btn')}); btn.classList.add('btn-primary'); btn.classList.remove('btn'); document.querySelectorAll('.os-card').forEach(c=>{ c.style.display=(f==='all'||c.dataset.family===f)?'':'none'; }); }
+</script>
+<%- include('../partials/foot') %>

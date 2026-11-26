@@ -1,0 +1,41 @@
+<%- include('../../partials/head', { title: 'Files - ' + currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${currentVm.id}.files`, navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { navArea:'user', breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:'Files'}] }) %>
+<main class="content">
+<style>.server-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}.server-tabs a{padding:10px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}.server-tabs a.active{color:#fff;border-bottom-color:var(--accent)}.fm-path{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.fm-row{cursor:pointer}.fm-row:hover td{background:rgba(255,255,255,.02)}.mono-sm{font-family:var(--mono);font-size:12px}</style>
+<div class="page-head"><div><h1 class="page-title">File Manager</h1><p class="page-sub">Manage files on <%= currentVm.name %>.</p></div><div style="display:flex;gap:8px"><input type="file" id="uploadInput" style="display:none"><button class="btn" onclick="document.getElementById('uploadInput').click()">Upload</button><button class="btn" onclick="mkdir()">New Folder</button><button class="btn" onclick="newFile()">New File</button></div></div>
+<div class="server-tabs"><a href="/server/<%=currentVm.id%>">Overview</a><a href="/server/<%=currentVm.id%>/console">Console</a><a href="/server/<%=currentVm.id%>/files" class="active">Files</a><a href="/server/<%=currentVm.id%>/network">Network</a><a href="/server/<%=currentVm.id%>/backups">Backups</a><a href="/server/<%=currentVm.id%>/snapshots">Snapshots</a><a href="/server/<%=currentVm.id%>/reinstall">Reinstall</a><a href="/server/<%=currentVm.id%>/activity">Activity</a></div>
+<div class="card"><div class="card-h"><div class="fm-path"><span class="muted">Path:</span><code class="inline" id="pathLabel">/</code></div><div style="display:flex;gap:8px"><input id="search" placeholder="Search files..." style="width:220px"><button class="btn btn-sm" onclick="load(currentPath)">Refresh</button></div></div>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead><tbody id="filesBody"><tr><td colspan="5" class="table-empty">Loading...</td></tr></tbody></table></div></div>
+<div class="modal-backdrop" id="editModal"><div class="modal" style="max-width:900px"><div class="modal-header"><div class="modal-title" id="editTitle">Edit File</div><button class="icon-btn" onclick="closeEdit()">✕</button></div><div class="modal-body"><textarea id="editContent" style="min-height:420px;font-family:var(--mono);font-size:12px"></textarea></div><div class="modal-footer"><button class="btn" onclick="closeEdit()">Cancel</button><button class="btn btn-primary" onclick="saveEdit()">Save</button></div></div></div>
+<script>
+const vmId=<%=currentVm.id%>; let currentPath='/'; let editPath='';
+function esc(s){return VP.esc(s)}
+async function load(p='/'){ currentPath=p; document.getElementById('pathLabel').textContent=p; const q=document.getElementById('search').value.toLowerCase();
+  try{ const r=await VP.api(`/api/vms/${vmId}/files?path=${encodeURIComponent(p)}`); let files=r.files||[];
+    if(p!=='/'){ files.unshift({name:'..',type:'dir',size:0,mtime:'',mode:'',__up:true}); }
+    if(q) files=files.filter(f=>f.__up||String(f.name).toLowerCase().includes(q));
+    const body=document.getElementById('filesBody');
+    if(!files.length){ body.innerHTML='<tr><td colspan="5" class="table-empty">Empty directory.</td></tr>'; return; }
+    body.innerHTML=files.map(f=>{ const full=f.__up?parentPath(p):(p==='/'?'/'+f.name:p+'/'+f.name); const isDir=f.type==='dir'||f.isDirectory; const name=f.__up?'..':f.name;
+      return `<tr class="fm-row"><td onclick="${isDir?`load('${esc(full)}')`:`editFile('${esc(full)}')`}"><div style="display:flex;gap:8px;align-items:center"><span>${isDir?'📁':'📄'}</span><span>${esc(name)}</span></div></td><td class="muted">${isDir?'—':VP.fmtBytes(f.size||0)}</td><td class="muted">${f.mtime?new Date(f.mtime).toLocaleString():'—'}</td><td class="mono-sm muted">${esc(f.mode||f.permissions||'')}</td><td style="text-align:right">${!f.__up?`<div style="display:flex;gap:6px;justify-content:flex-end">${!isDir?`<button class='btn btn-sm btn-ghost' onclick="downloadFile('${esc(full)}')">Download</button><button class='btn btn-sm btn-ghost' onclick="editFile('${esc(full)}')">Edit</button>`:''}<button class='btn btn-sm btn-ghost' onclick="renamePath('${esc(full)}')">Rename</button><button class='btn btn-sm btn-ghost' onclick="delPath('${esc(full)}',${isDir})">Delete</button></div>`:''}</td></tr>`;
+    }).join('');
+  }catch(e){ document.getElementById('filesBody').innerHTML=`<tr><td colspan="5" class="table-empty" style="color:#F87171">${esc(e.message)}</td></tr>`; }
+}
+function parentPath(p){ if(p==='/'||!p) return '/'; const parts=p.split('/').filter(Boolean); parts.pop(); return '/'+parts.join('/') || '/'; }
+async function mkdir(){ const name=prompt('Folder name'); if(!name) return; const path=currentPath==='/'?'/'+name:currentPath+'/'+name; try{ await VP.api(`/api/vms/${vmId}/files/mkdir`,{method:'POST',body:{path}}); load(currentPath);}catch(e){VP.toast(e.message,'error');} }
+async function newFile(){ const name=prompt('File name'); if(!name) return; const path=currentPath==='/'?'/'+name:currentPath+'/'+name; try{ await VP.api(`/api/vms/${vmId}/files/write`,{method:'POST',body:{path,content:''}}); load(currentPath);}catch(e){VP.toast(e.message,'error');} }
+async function renamePath(from){ const base=from.split('/').pop(); const toName=prompt('New name',base); if(!toName) return; const to=from.slice(0,from.lastIndexOf('/'))+'/'+toName; try{ await VP.api(`/api/vms/${vmId}/files/rename`,{method:'POST',body:{from,to}}); load(currentPath);}catch(e){VP.toast(e.message,'error');} }
+async function delPath(path,isDir){ if(!await VP.confirm(`Delete ${path}?`,{danger:true,title:'Delete'})) return; try{ await VP.api(`/api/vms/${vmId}/files/delete`,{method:'POST',body:{path,recursive:!!isDir}}); load(currentPath);}catch(e){VP.toast(e.message,'error');} }
+async function editFile(path){ try{ const r=await VP.api(`/api/vms/${vmId}/files/read?path=${encodeURIComponent(path)}`); editPath=path; document.getElementById('editTitle').textContent=path; document.getElementById('editContent').value=r.content||''; document.getElementById('editModal').classList.add('open'); }catch(e){VP.toast(e.message,'error');} }
+function closeEdit(){ document.getElementById('editModal').classList.remove('open'); }
+async function saveEdit(){ try{ await VP.api(`/api/vms/${vmId}/files/write`,{method:'POST',body:{path:editPath,content:document.getElementById('editContent').value}}); VP.toast('Saved','success'); closeEdit(); load(currentPath);}catch(e){VP.toast(e.message,'error');} }
+async function downloadFile(path){ window.open(`/api/vms/${vmId}/files/download?path=${encodeURIComponent(path)}`,'_blank'); }
+document.getElementById('uploadInput').addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; const path=currentPath==='/'?'/'+f.name:currentPath+'/'+f.name; try{ const buf=await f.arrayBuffer(); const r=await fetch(`/api/vms/${vmId}/files/upload`,{method:'POST',headers:{'X-File-Path':path,'Content-Type':'application/octet-stream'},body:buf,credentials:'same-origin'}); if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error||'Upload failed'); VP.toast('Uploaded','success'); load(currentPath);}catch(err){VP.toast(err.message,'error')} e.target.value=''; });
+document.getElementById('search').addEventListener('input',()=>load(currentPath));
+load('/');
+</script>
+</main>
+</div>
+<%- include('../../partials/foot') %>

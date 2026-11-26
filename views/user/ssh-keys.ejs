@@ -1,0 +1,13 @@
+<%- include('../partials/head', { title: 'SSH Keys' }) %>
+<%- include('../partials/sidebar', { activePage:'ssh-keys', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'SSH Keys'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">SSH Keys</h1><p class="page-sub">Manage SSH public keys for VDS provisioning.</p></div><div class="page-actions"><button class="btn btn-primary" onclick="document.getElementById('addKey').style.display='block'">Add SSH Key</button></div></div>
+<div class="card" id="addKey" style="display:none;margin-bottom:16px"><div class="card-h"><div class="card-t">Add SSH Key</div></div><div class="card-b"><form id="kForm"><div class="field"><label class="label">Name</label><input class="input" name="name" required></div><div class="field"><label class="label">Public Key</label><textarea class="input" name="public_key" required placeholder="ssh-ed25519 AAAA..."></textarea></div><button class="btn btn-primary" type="submit">Save Key</button></form></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Fingerprint/Preview</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+<% if(!keys.length){ %><tr><td colspan="4"><div class="table-empty">No SSH keys.</div></td></tr><% } %>
+<% keys.forEach(k=>{ %><tr><td style="font-weight:500"><%= k.name %></td><td class="mono muted" style="max-width:360px;overflow:hidden;text-overflow:ellipsis"><%= String(k.public_key||'').slice(0,64) %>...</td><td class="muted"><%= new Date(k.created_at||Date.now()).toLocaleString() %></td><td style="text-align:right"><button class="btn btn-sm btn-danger" onclick="delKey(<%=k.id%>)">Delete</button></td></tr><% }) %>
+</tbody></table></div></div></main></div>
+<script>
+kForm.onsubmit=async e=>{e.preventDefault(); const fd=new FormData(e.target); try{ await VP.api('/ssh-keys',{method:'POST',body:Object.fromEntries(fd)}); location.reload(); }catch(err){VP.toast(err.message,'error')} };
+async function delKey(id){ if(!await VP.confirm('Delete this SSH key?',{danger:true})) return; await VP.api('/ssh-keys/'+id+'/delete',{method:'POST'}); location.reload(); }
+</script><%- include('../partials/foot') %>

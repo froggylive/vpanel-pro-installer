@@ -1,0 +1,10 @@
+<%- include('../partials/head', { title: 'Locations' }) %>
+<%- include('../partials/sidebar', { activePage:'admin-locations', navArea:'admin' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Admin',href:'/admin'},{label:'Locations'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">Locations</h1><p class="page-sub">Locations derived from configured nodes.</p></div><a href="/admin/nodes/create" class="btn btn-primary">Add Node</a></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Location</th><th>Nodes</th><th>Total RAM</th><th>Total Disk</th></tr></thead><tbody>
+    <% if(!locations.length){ %><tr><td colspan="4"><div class="table-empty">No locations found. Add nodes with location values.</div></td></tr><% } %>
+    <% locations.forEach(l=>{ %><tr><td style="font-weight:500"><%= l.name %></td><td><%= l.nodes.length %></td><td class="muted"><%= l.nodes.reduce((a,n)=>a+Number(n.memory||n.ram||0),0) %> MB</td><td class="muted"><%= l.nodes.reduce((a,n)=>a+Number(n.disk||0),0) %> GB</td></tr><% }) %>
+  </tbody></table></div></div>
+</main></div><%- include('../partials/foot') %>

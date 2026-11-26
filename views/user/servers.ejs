@@ -1,0 +1,31 @@
+<%- include('../partials/head', { title: 'My VDS' }) %>
+<%- include('../partials/sidebar', { activePage:'servers', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'My VDS'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">My Virtual Servers</h1><p class="page-sub">Manage and monitor all your virtual private servers.</p></div><div class="page-actions"></div></div>
+  <div class="card" style="margin-bottom:16px"><div class="card-b" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><% ['all','running','stopped','suspended'].forEach(f=>{ %><a class="btn btn-sm <%= filter===f?'btn-primary':'btn-ghost' %>" href="/servers?filter=<%=f%>&q=<%=encodeURIComponent(q||'')%>"><%= f[0].toUpperCase()+f.slice(1) %></a><% }) %></div>
+    <form method="get" action="/servers" style="display:flex;gap:8px"><input type="hidden" name="filter" value="<%=filter%>"><input class="input" name="q" value="<%=q%>" placeholder="Search servers..." style="width:240px"><button class="btn btn-sm">Search</button></form>
+  </div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Server</th><th>IP Address</th><th>Node</th><th>OS</th><th>CPU</th><th>RAM</th><th>Disk</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+    <% const filtered=vms.filter(v=> (filter==='all'||v.status===filter) && (!q || (v.name||'').toLowerCase().includes(q) || String(v.id).includes(q) || String(v.ssh_port||'').includes(q))); %>
+    <% if(!filtered.length){ %><tr><td colspan="9"><div class="table-empty">No servers found.</div></td></tr><% } %>
+    <% filtered.forEach(vm=>{ %>
+      <tr>
+        <td><div style="font-weight:500"><%= vm.name %></div><div class="muted2 mono">#<%= vm.id %></div></td>
+        <td class="mono"><%= vm.ssh_port?`127.0.0.1:${vm.ssh_port}`:'—' %></td>
+        <td><%= vm.node_name||'Local' %></td>
+        <td><%= vm.os_name||vm.os_type||'—' %></td>
+        <td><%= vm.cpus %> vCPU</td>
+        <td><%= (Number(vm.memory||0)/1024).toFixed(1) %> GB</td>
+        <td><%= vm.disk_size %></td>
+        <td><span class="badge <%= vm.status==='running'?'badge-green':vm.status==='suspended'?'badge-red':'badge-gray' %>"><%= vm.status %></span></td>
+        <td><div style="display:flex;gap:6px;justify-content:flex-end">
+          <a class="btn btn-sm btn-primary" href="/server/<%=vm.id%>">Manage</a>
+          <a class="btn btn-sm" href="/server/<%=vm.id%>/console">Console</a>
+        </div></td>
+      </tr>
+    <% }) %>
+  </tbody></table></div></div>
+</main></div>
+<%- include('../partials/foot') %>

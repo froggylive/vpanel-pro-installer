@@ -1,0 +1,21 @@
+<%- include('../../partials/head', { title: 'Backups - ' + currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${currentVm.id}.backups`, navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { navArea:'user', breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:'Backups'}] }) %>
+<main class="content">
+<style>.server-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}.server-tabs a{padding:10px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}.server-tabs a.active{color:#fff;border-bottom-color:var(--accent)}</style>
+<div class="page-head"><div><h1 class="page-title">Backups</h1><p class="page-sub">Create and restore backups for <%= currentVm.name %>.</p></div><button class="btn btn-primary" onclick="createBackup()"><i data-lucide="plus"></i>Create Backup</button></div>
+<div class="server-tabs"><a href="/server/<%=currentVm.id%>">Overview</a><a href="/server/<%=currentVm.id%>/console">Console</a><a href="/server/<%=currentVm.id%>/files">Files</a><a href="/server/<%=currentVm.id%>/network">Network</a><a href="/server/<%=currentVm.id%>/backups" class="active">Backups</a><a href="/server/<%=currentVm.id%>/snapshots">Snapshots</a><a href="/server/<%=currentVm.id%>/reinstall">Reinstall</a><a href="/server/<%=currentVm.id%>/activity">Activity</a></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Size</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+<% if (!backups.length) { %><tr><td colspan="4"><div class="table-empty">No backups yet.</div></td></tr><% } %>
+<% backups.forEach(b => { %><tr><td><div style="font-weight:500"><%= b.name || ('Backup #'+b.id) %></div><div class="muted mono" style="font-size:11px">#<%= b.id %></div></td><td class="muted"><%= b.size ? VP.fmtBytes ? '' : (Number(b.size/1048576).toFixed(1)+' MB') : '—' %></td><td class="muted"><%= new Date(b.created_at||Date.now()).toLocaleString() %></td><td><div style="display:flex;gap:6px;justify-content:flex-end"><a class="btn btn-sm btn-ghost" href="/server/<%=currentVm.id%>/backups/<%=b.id%>/download">Download</a><button class="btn btn-sm btn-ghost" onclick="restoreBackup(<%=b.id%>)">Restore</button><button class="btn btn-sm btn-danger" onclick="deleteBackup(<%=b.id%>)">Delete</button></div></td></tr><% }) %>
+</tbody></table></div></div>
+<script>
+const vmId=<%=currentVm.id%>;
+async function createBackup(){ const name=prompt('Backup name (optional):')||''; try{ await VP.api(`/server/${vmId}/backups/create`,{method:'POST',body:{name}}); VP.toast('Backup created','success'); location.reload(); }catch(e){VP.toast(e.message,'error');} }
+async function restoreBackup(id){ if(!await VP.confirm('Restore this backup? Current disk data will be replaced.',{danger:true,title:'Restore Backup'})) return; try{ await VP.api(`/server/${vmId}/backups/${id}/restore`,{method:'POST'}); VP.toast('Backup restored','success'); }catch(e){VP.toast(e.message,'error');} }
+async function deleteBackup(id){ if(!await VP.confirm('Delete this backup?',{danger:true,title:'Delete Backup'})) return; try{ await VP.api(`/server/${vmId}/backups/${id}/delete`,{method:'POST'}); location.reload(); }catch(e){VP.toast(e.message,'error');} }
+</script>
+</main>
+</div>
+<%- include('../../partials/foot') %>

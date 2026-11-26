@@ -1,0 +1,24 @@
+<link rel="stylesheet" href="/vendor/xterm.min.css">
+<script src="/vendor/xterm.min.js"></script>
+<script src="/vendor/addon-fit.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<div class="card"><div class="card-h"><div class="card-t">VDS Console</div><div style="display:flex;gap:8px;align-items:center"><span class="muted2" id="connStatus">Connecting...</span><button class="btn btn-sm" id="reconnectBtn">Reconnect</button><button class="btn btn-sm" id="clearBtn">Clear</button><button class="btn btn-sm" id="fullscreenBtn">Fullscreen</button></div></div>
+<div class="card-b" style="padding:12px"><div id="terminal" style="height:560px;background:#050505;border:1px solid var(--border);border-radius:10px;overflow:hidden"></div></div></div>
+<script>
+const vmId=<%=currentVm.id%>;
+const token=(document.cookie.match(/(?:^|; )token=([^;]+)/)||[])[1]||'';
+const term=new Terminal({cursorBlink:true,fontSize:13,fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',theme:{background:'#050505',foreground:'#FAFAFA'}});
+const fit=new FitAddon.FitAddon(); term.loadAddon(fit); term.open(document.getElementById('terminal')); fit.fit();
+let socket;
+function connect(){ if(socket) try{socket.disconnect()}catch{} socket=io({auth:{token:decodeURIComponent(token)}}); connStatus.textContent='Connecting...';
+ socket.on('connect',()=>{connStatus.textContent='Connected'; socket.emit('console:join',{vmId,sessionId:1,cols:term.cols,rows:term.rows});});
+ socket.on('console:ready',()=>connStatus.textContent='Ready');
+ socket.on('console:data',d=>term.write(typeof d==='string'?d:(d.data||'')));
+ socket.on('console:error',e=>{term.write(`\r\n\x1b[31m${e?.message||e}\x1b[0m\r\n`);connStatus.textContent='Error';});
+ socket.on('console:close',()=>connStatus.textContent='Disconnected'); socket.on('disconnect',()=>connStatus.textContent='Disconnected');
+ term.onData(data=>socket.emit('console:input',{sessionId:1,data}));
+}
+window.addEventListener('resize',()=>{fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows});});
+reconnectBtn.onclick=connect; clearBtn.onclick=()=>term.clear(); fullscreenBtn.onclick=()=>{const el=document.getElementById('terminal'); if(!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); setTimeout(()=>{fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows});},200);};
+connect();
+</script>

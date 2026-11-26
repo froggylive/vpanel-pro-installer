@@ -1,0 +1,17 @@
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">IP Configuration</div></div><div class="card-b">
+    <div class="kv"><span class="k">IPv4 (SSH NAT)</span><span class="v mono">127.0.0.1:<%= currentVm.ssh_port %></span></div>
+    <div class="kv"><span class="k">IPv6</span><span class="v muted">Not assigned</span></div>
+    <div class="kv"><span class="k">Gateway</span><span class="v mono">10.0.2.2</span></div>
+    <div class="kv"><span class="k">Netmask</span><span class="v mono">255.255.255.0</span></div>
+    <div class="kv"><span class="k">DNS</span><span class="v mono">Guest/default</span></div>
+  </div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Interface</div></div><div class="card-b">
+    <div class="kv"><span class="k">Mode</span><span class="v">QEMU user networking</span></div>
+    <div class="kv"><span class="k">NIC Model</span><span class="v">virtio-net-pci</span></div>
+    <div class="kv"><span class="k">VNC Port</span><span class="v mono"><%= currentVm.vnc_port || '—' %></span></div>
+    <div class="kv"><span class="k">Agent Port</span><span class="v mono"><%= currentVm.agent_port || '—' %></span></div>
+    <div class="hint">Read-only: backend does not expose editable bridge/IP assignment for this VM type.</div>
+  </div></div>
+</div>
+<div class="card" style="margin-top:16px"><div class="card-h"><div class="card-t">Port Forwards</div></div><div class="card-b"><pre style="margin:0;background:#0B0B0D;border:1px solid var(--border);padding:14px;border-radius:8px;color:#d4d4d8;font-size:12px;overflow:auto"><%= JSON.stringify(currentVm.port_forwards||[], null, 2) %></pre></div></div>

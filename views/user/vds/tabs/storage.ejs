@@ -1,0 +1,17 @@
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">Storage</div></div><div class="card-b">
+    <div class="kv"><span class="k">Disk Allocation</span><span class="v"><%= currentVm.disk_size %></span></div>
+    <div class="kv"><span class="k">Actual Usage</span><span class="v" id="stUsed">—</span></div>
+    <div class="kv"><span class="k">Disk Path</span><span class="v mono" style="font-size:11px"><%= currentVm.disk_path %></span></div>
+    <div class="progress" style="margin-top:12px"><span id="stBar" style="width:0%"></span></div>
+  </div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Resize</div></div><div class="card-b">
+    <p class="muted" style="font-size:13px;margin-top:0">Disk resize uses the existing backend resize operation if supported. Shrinking is not supported.</p>
+    <div class="field"><label class="label">New Size (e.g. 40G)</label><input id="resizeSize" class="input" placeholder="40G" value="<%= currentVm.disk_size %>"></div>
+    <button class="btn btn-primary" onclick="doResize()">Resize Disk</button>
+  </div></div>
+</div>
+<script>
+(async function(){ const id=<%=currentVm.id%>; try{ const s=(await VP.api(`/vds/${id}/status`)).stats||{}; const du=Number(s.disk?.actual_mb||0),dp=Number(s.disk?.percent||0); stUsed.textContent=(du/1024).toFixed(2)+' GB ('+dp.toFixed(1)+'%)'; stBar.style.width=Math.min(100,dp)+'%'; }catch(e){} })();
+async function doResize(){ const disk_size=document.getElementById('resizeSize').value.trim(); if(!disk_size) return; if(!await VP.confirm('Resize disk to '+disk_size+'? Ensure you have backups.',{danger:true,okText:'Resize'})) return; try{ await VP.api(`/servers/<%=currentVm.id%>/resize`,{method:'POST',body:{disk_size}}); VP.toast('Disk resized','success'); location.reload(); }catch(e){ VP.toast(e.message,'error'); } }
+</script>

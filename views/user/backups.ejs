@@ -1,0 +1,8 @@
+<%- include('../partials/head', { title: 'Backups' }) %>
+<%- include('../partials/sidebar', { activePage:'backups', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'Backups'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Backups</h1><p class="page-sub">Backups across your virtual servers.</p></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Backup</th><th>VDS</th><th>Size</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+<% if(!backups.length){ %><tr><td colspan="5"><div class="table-empty">No backups found.</div></td></tr><% } %>
+<% backups.forEach(b=>{ const vm=vms.find(v=>v.id===b.vm_id); %><tr><td><div style="font-weight:500"><%= b.name||('Backup #'+b.id) %></div><div class="muted2 mono">#<%= b.id %></div></td><td><%= vm?vm.name:('#'+b.vm_id) %></td><td class="muted"><%= b.size?(Number(b.size)/1048576).toFixed(1)+' MB':'—' %></td><td class="muted"><%= new Date(b.created_at||Date.now()).toLocaleString() %></td><td><div style="display:flex;gap:6px;justify-content:flex-end"><a class="btn btn-sm btn-ghost" href="/vds/<%=b.vm_id%>/backups">Manage</a></div></td></tr><% }) %>
+</tbody></table></div></div></main></div><%- include('../partials/foot') %>

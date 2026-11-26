@@ -1,0 +1,31 @@
+<%- include('../partials/head', { title: 'My VDS' }) %>
+<%- include('../partials/sidebar', { activePage:'vds', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'My VDS'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">My Virtual Servers</h1><p class="page-sub">Manage and monitor all your virtual private servers.</p></div><div class="page-actions"><a href="/vds" class="btn btn-ghost">Refresh</a></div></div>
+  <div class="card" style="margin-bottom:16px"><div class="card-b" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><% ['all','running','stopped','suspended'].forEach(f=>{ %><a class="btn btn-sm <%= filter===f?'btn-primary':'btn-ghost' %>" href="/vds?filter=<%=f%>&q=<%=encodeURIComponent(q||'')%>"><%= f[0].toUpperCase()+f.slice(1) %></a><% }) %></div>
+    <form method="get" action="/vds" style="display:flex;gap:8px"><input type="hidden" name="filter" value="<%=filter%>"><input class="input" name="q" value="<%=q%>" placeholder="Search VDS..." style="width:240px"><button class="btn btn-sm">Search</button></form>
+  </div></div>
+  <div class="grid g-3">
+    <% const filtered=vms.filter(v=> (filter==='all'||v.status===filter) && (!q || (v.name||'').toLowerCase().includes(q) || String(v.id).includes(q) || String(v.ssh_port||'').includes(q))); %>
+    <% if(!filtered.length){ %><div class="card" style="grid-column:1/-1"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg></div><h3>No virtual servers found</h3><p>Create a VDS or adjust your filters.</p></div></div><% } %>
+    <% filtered.forEach(vm=>{ %>
+      <div class="card"><div class="card-b">
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-weight:600;font-size:16px"><%= vm.name %></div><div class="muted2 mono">#<%= vm.id %> · <%= vm.ssh_port?`127.0.0.1:${vm.ssh_port}`:'No IP' %></div></div><span class="badge <%= vm.status==='running'?'badge-green':vm.status==='suspended'?'badge-red':'badge-gray' %>"><%= vm.status %></span></div>
+        <div class="kv"><span class="k">Location</span><span class="v"><%= vm.node_name||'Local' %></span></div>
+        <div class="kv"><span class="k">Operating System</span><span class="v"><%= vm.os_name||vm.os_type||'—' %></span></div>
+        <div class="kv"><span class="k">Resources</span><span class="v"><%= vm.cpus %> vCPU · <%= (Number(vm.memory||0)/1024).toFixed(1) %> GB · <%= vm.disk_size %></span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+          <a class="btn btn-sm btn-primary" href="/vds/<%=vm.id%>">Manage</a>
+          <a class="btn btn-sm" href="/vds/<%=vm.id%>/console">Console</a>
+          <button class="btn btn-sm btn-ghost" onclick="VP.power(<%=vm.id%>,'start')">Start</button>
+          <button class="btn btn-sm btn-ghost" onclick="VP.power(<%=vm.id%>,'stop')">Stop</button>
+          <button class="btn btn-sm btn-ghost" onclick="VP.power(<%=vm.id%>,'restart')">Restart</button>
+        </div>
+      </div></div>
+    <% }) %>
+  </div>
+</main></div>
+<script>VP.power=async(id,a)=>{try{await VP.api(`/vds/${id}/power`,{method:'POST',body:{action:a}});VP.toast('Command sent: '+a,'success');setTimeout(()=>location.reload(),900)}catch(e){VP.toast(e.message,'error')}}</script>
+<%- include('../partials/foot') %>

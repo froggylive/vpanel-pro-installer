@@ -1,0 +1,6 @@
+<%- include('../partials/head', { title: 'Firewall' }) %>
+<%- include('../partials/sidebar', { activePage:'firewall', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'Firewall'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Firewall</h1><p class="page-sub">Firewall rules for VDS instances.</p></div></div>
+<div class="card"><div class="card-b"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Per-VDS firewall not available</h3><p>The current backend does not expose a verified customer firewall API applied to QEMU VDS instances. No fake rules or toggles are shown.</p></div></div></div>
+</main></div><%- include('../partials/foot') %>

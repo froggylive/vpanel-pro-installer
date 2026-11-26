@@ -1,0 +1,17 @@
+<%- include('../../partials/head', { title: 'Activity - ' + currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${currentVm.id}.activity`, navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { navArea:'user', breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:'Activity'}] }) %>
+<main class="content">
+<style>.server-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}.server-tabs a{padding:10px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}.server-tabs a.active{color:#fff;border-bottom-color:var(--accent)}</style>
+<div class="page-head"><div><h1 class="page-title">Server Activity</h1><p class="page-sub">Recent actions and events for <%= currentVm.name %>.</p></div></div>
+<div class="server-tabs">
+  <a href="/server/<%=currentVm.id%>">Overview</a><a href="/server/<%=currentVm.id%>/console">Console</a><a href="/server/<%=currentVm.id%>/files">Files</a><a href="/server/<%=currentVm.id%>/network">Network</a><a href="/server/<%=currentVm.id%>/backups">Backups</a><a href="/server/<%=currentVm.id%>/snapshots">Snapshots</a><a href="/server/<%=currentVm.id%>/reinstall">Reinstall</a><a href="/server/<%=currentVm.id%>/activity" class="active">Activity</a>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Event</th><th>User</th><th>Details</th><th>Time</th></tr></thead><tbody>
+<% if (!logs.length) { %><tr><td colspan="4"><div class="table-empty">No activity recorded yet.</div></td></tr><% } %>
+<% logs.forEach(l => { %><tr><td style="font-weight:500"><%= l.event %></td><td class="muted"><%= l.username || ('User #'+l.user_id) %></td><td class="muted" style="max-width:420px;white-space:normal"><%= l.details ? JSON.stringify(l.details) : '—' %></td><td class="muted"><%= new Date(l.created_at||l.created||Date.now()).toLocaleString() %></td></tr><% }) %>
+</tbody></table></div></div>
+</main>
+</div>
+<%- include('../../partials/foot') %>

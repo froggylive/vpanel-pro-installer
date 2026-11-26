@@ -1,0 +1,15 @@
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">Power & Boot</div></div><div class="card-b">
+    <div class="kv"><span class="k">Status</span><span class="v"><span class="badge <%= currentVm.status==='running'?'badge-green':currentVm.status==='suspended'?'badge-red':'badge-gray' %>"><%= currentVm.status %></span></span></div>
+    <div class="kv"><span class="k">Start on boot</span><span class="v"><%= currentVm.autoboot ? 'Enabled' : 'Disabled' %></span></div>
+    <div class="hint">Use power controls above. Reinstall and destructive actions require confirmation.</div>
+  </div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Reinstall OS</div></div><div class="card-b">
+    <p class="muted" style="font-size:13px;margin-top:0">Reinstalling erases all data on the VDS disk. Back up important data first.</p>
+    <div class="field"><label class="label">Operating System</label><select id="reOs" class="input"><% osList.forEach(o=>{ %><option value="<%=o[0]%>"><%=o[0]%></option><% }) %></select></div>
+    <button class="btn btn-danger" onclick="reinstall()">Reinstall VDS</button>
+  </div></div>
+</div>
+<script>
+async function reinstall(){ const os=document.getElementById('reOs').value; if(!await VP.confirm(`Reinstall ${os}? This will erase all disk data.`,{danger:true,okText:'Reinstall'})) return; try{ await VP.api(`/vds/<%=currentVm.id%>/reinstall`,{method:'POST',body:{os}}); VP.toast('Reinstall started','success'); location.href='/vds/<%=currentVm.id%>/overview'; }catch(e){ VP.toast(e.message,'error'); } }
+</script>

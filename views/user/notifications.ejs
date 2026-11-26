@@ -1,0 +1,8 @@
+<%- include('../partials/head', { title: 'Notifications' }) %>
+<%- include('../partials/sidebar', { activePage:'notifications', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Account'},{label:'Notifications'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Notifications</h1><p class="page-sub">Recent account notifications.</p></div></div>
+<div class="card"><div class="card-b" style="padding:0">
+  <% if(!notifs.length){ %><div class="table-empty">No notifications.</div><% } %>
+  <% notifs.forEach(n=>{ %><div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px"><div><div style="font-weight:<%= n.read?500:600 %>"><%= n.title||n.type||'Notification' %></div><div class="muted" style="font-size:13px"><%= n.message||n.body||'' %></div></div><div class="muted2" style="font-size:12px;white-space:nowrap"><%= new Date(n.created_at||Date.now()).toLocaleString() %></div></div><% }) %>
+</div></div></main></div><%- include('../partials/foot') %>

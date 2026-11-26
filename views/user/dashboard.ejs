@@ -1,0 +1,46 @@
+<%- include('../partials/head', { title: 'Dashboard' }) %>
+<%- include('../partials/sidebar', { activePage:'dashboard', navArea:'user' }) %>
+<div class="main-wrap">
+<%- include('../partials/topbar', { breadcrumbs:[{label:'Overview'},{label:'Dashboard'}] }) %>
+<main class="content">
+  <div class="page-head">
+    <div><h1 class="page-title">Welcome back, <%= user.username %></h1><p class="page-sub">Manage your virtual servers and infrastructure from one place.</p></div>
+    <div class="page-actions"></div>
+  </div>
+  <div class="grid g-4" style="margin-bottom:20px">
+    <div class="card stat"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg></div><div><div class="stat-label">Total VDS</div><div class="stat-val"><%= stats.total %></div></div></div>
+    <div class="card stat"><div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div><div><div class="stat-label">Running VDS</div><div class="stat-val"><%= stats.running %></div></div></div>
+    <div class="card stat"><div class="stat-icon gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg></div><div><div class="stat-label">Stopped VDS</div><div class="stat-val"><%= stats.stopped %></div></div></div>
+    <div class="card stat"><div class="stat-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div><div class="stat-label">Suspended VDS</div><div class="stat-val"><%= stats.suspended %></div></div></div>
+  </div>
+
+  <div class="grid g-3" style="margin-bottom:20px">
+    <% const r=resources||{}; const cards=[['RAM Allocated',r.ram,'GB'],['CPU Allocated',r.cpu,'Cores'],['Storage Allocated',r.disk,'GB']]; cards.forEach(([label,val,unit])=>{ const pct=Math.min(100,Number(val?.percent||0)); %>
+    <div class="card"><div class="card-b"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span class="muted"><%= label %></span><span style="font-weight:600"><%= val?.vmAllocated ?? '—' %> / <%= val?.allocated ?? '—' %> <%= unit %></span></div><div class="progress"><span style="width:<%=pct%>%;background:<%= pct>90?'var(--red)':pct>70?'var(--yellow)':'#fff' %>"></span></div><div class="muted2" style="font-size:12px;margin-top:8px"><%= pct.toFixed(1) %>% of quota</div></div></div>
+    <% }) %>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-t">Recent VDS</div><a href="/servers" class="btn btn-ghost btn-sm">View all</a></div>
+    <div class="table-wrap"><table><thead><tr><th>Server</th><th>IP Address</th><th>Location</th><th>OS</th><th>CPU</th><th>RAM</th><th>Disk</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+      <% if(!recent.length){ %><tr><td colspan="9"><div class="table-empty">No VDS yet. Contact an administrator to provision a server.</div></td></tr><% } %>
+      <% recent.forEach(vm=>{ %>
+        <tr>
+          <td><div style="font-weight:500"><%= vm.name %></div><div class="muted2 mono">#<%= vm.id %></div></td>
+          <td class="mono"><%= vm.ssh_port?`127.0.0.1:${vm.ssh_port}`:'—' %></td>
+          <td><%= vm.node_name||'Local' %></td>
+          <td><%= vm.os_name||vm.os_type||'—' %></td>
+          <td><%= vm.cpus %> vCPU</td>
+          <td><%= (Number(vm.memory||0)/1024).toFixed(1) %> GB</td>
+          <td><%= vm.disk_size %></td>
+          <td><span class="badge <%= vm.status==='running'?'badge-green':vm.status==='suspended'?'badge-red':'badge-gray' %>"><%= vm.status %></span></td>
+          <td><div style="display:flex;gap:6px;justify-content:flex-end">
+            <a class="btn btn-sm" href="/server/<%=vm.id%>">Manage</a>
+          </div></td>
+        </tr>
+      <% }) %>
+    </tbody></table></div>
+  </div>
+</main>
+</div>
+<%- include('../partials/foot') %>

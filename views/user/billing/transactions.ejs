@@ -1,0 +1,10 @@
+<%- include('../../partials/head', { title: 'Transactions' }) %>
+<%- include('../../partials/sidebar', { activePage:'billing-transactions', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Billing',href:'/billing'},{label:'Transactions'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Transactions</h1><p class="page-sub">Paid billing transactions recorded in the system.</p></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Transaction / Invoice</th><th>Description</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>
+<% if(!transactions.length){ %><tr><td colspan="5"><div class="table-empty">No transactions found.</div></td></tr><% } %>
+<% transactions.forEach(t=>{ %><tr><td class="mono"><%= t.invoice_number %></td><td><%= t.plan_name||'Payment' %></td><td style="font-weight:600"><%= t.currency %> <%= Number(t.amount||0).toFixed(2) %></td><td><span class="badge badge-green">paid</span></td><td class="muted"><%= t.paid_at?new Date(t.paid_at).toLocaleString():new Date(t.created_at||Date.now()).toLocaleString() %></td></tr><% }) %>
+</tbody></table></div></div>
+<div class="hint" style="margin-top:12px">Transactions are derived from paid invoices in the existing billing backend. No external payment gateway transaction IDs are fabricated.</div>
+</main></div><%- include('../../partials/foot') %>

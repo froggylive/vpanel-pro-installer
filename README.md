@@ -1,30 +1,27 @@
-# vPanel Pro Custom Installer
+# vPanel Pro Installer (bundled)
 
-Installs [vPanel Pro](https://github.com/nobita329/vpanel-pro) on a fresh Debian/Ubuntu VPS.
+This repo contains the **vPanel Pro panel files** plus a custom installer.
 
-## Quick install
+## Install on a VPS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/froggylive/vpanel-pro-installer/main/install.sh -o install.sh
+git clone https://github.com/froggylive/vpanel-pro-installer.git
+cd vpanel-pro-installer
 sudo bash install.sh -y --admin-user admin --admin-email admin@example.com --admin-pass 'ChangeMe123!'
 ```
 
+Or one-liner after cloning is not required; clone includes all panel files.
+
 ## Options
 
-```bash
-sudo bash install.sh --help
-```
-
-- `--repo <url>` - source repo (default: nobita329/vpanel-pro)
-- `--branch <name>` - branch (default: main)
-- `--dir <path>` - install dir (default: /opt/vpanel-pro)
-- `--admin-user/email/pass` - admin credentials
+- `--dir /opt/vpanel-pro` - install location
+- `--admin-user / --admin-email / --admin-pass` - admin credentials
 - `--no-pm2` - skip PM2
+- `--git --repo <url> --branch <name>` - install from git instead of bundled files
 - `-y` - non-interactive
 
 ## Notes
 
-- Requires root on Debian/Ubuntu.
-- Installs Node.js 20, QEMU/cloud-image-utils, MongoDB (Docker or native), PM2.
-- If `/dev/kvm` is unavailable, VMs run in TCG software emulation (slow). Enable nested virtualization/KVM on the host for normal VPS speed.
-- For your own fork, pass `--repo https://github.com/<you>/<repo>.git`.
+- Installs Node.js 20, QEMU/cloud-image-utils, MongoDB (Docker/native), dependencies, and PM2.
+- Excludes `.env`, `node_modules`, `vms`, `data`, `storage`, uploads from git.
+- If `/dev/kvm` is missing, VMs run in TCG (slow). Enable KVM/nested virtualization for normal speed.

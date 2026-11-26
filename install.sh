@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  vPanel Pro - Custom Installer
-#  Installs vPanel Pro on Debian/Ubuntu with Node.js, MongoDB, QEMU, PM2
+#  vPanel Pro - Custom Installer (bundled panel files)
+#  Installs bundled vPanel Pro on Debian/Ubuntu with Node.js, MongoDB, QEMU, PM2
 # =============================================================================
 set -euo pipefail
 
@@ -11,10 +11,10 @@ log_ok(){ printf "${GREEN}${BOLD}[OK]${NC} %b\n" "$*"; }
 log_warn(){ printf "${YELLOW}${BOLD}[WARN]${NC} %b\n" "$*"; }
 log_err(){ printf "${RED}${BOLD}[ERR]${NC} %b\n" "$*" >&2; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_URL="${VPANEL_REPO:-https://github.com/nobita329/vpanel-pro.git}"
 BRANCH="${VPANEL_BRANCH:-main}"
 INSTALL_DIR="${VPANEL_DIR:-/opt/vpanel-pro}"
-APP_USER="${VPANEL_USER:-root}"
 USE_PM2=1
 NON_INTERACTIVE=0
 ADMIN_USER="${ADMIN_USER:-admin}"
@@ -22,10 +22,12 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-admin@vpanel.local}"
 ADMIN_PASS="${ADMIN_PASS:-}"
 PANEL_PORT="${PANEL_PORT:-3001}"
 API_PORT="${API_PORT:-3002}"
+FROM_GIT=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo) shift; REPO_URL="$1" ;;
+    --git) FROM_GIT=1 ;;
+    --repo) shift; REPO_URL="$1"; FROM_GIT=1 ;;
     --branch) shift; BRANCH="$1" ;;
     --dir) shift; INSTALL_DIR="$1" ;;
     --admin-user) shift; ADMIN_USER="$1" ;;
@@ -36,24 +38,23 @@ while [ $# -gt 0 ]; do
     -h|--help)
       cat <<EOF
 Usage: sudo bash install.sh [options]
-  --repo <url>          Git repo to install (default: nobita329/vpanel-pro)
-  --branch <name>       Git branch (default: main)
   --dir <path>          Install directory (default: /opt/vpanel-pro)
   --admin-user <user>   Admin username
   --admin-email <email> Admin email
   --admin-pass <pass>   Admin password
   --no-pm2              Do not install/use PM2
+  --git                 Clone from git instead of bundled files
+  --repo <url>          Git repo when using --git
+  --branch <name>       Git branch when using --git
   -y                    Non-interactive
 EOF
-      exit 0
-      ;;
+      exit 0 ;;
     *) log_warn "Unknown arg: $1" ;;
   esac
   shift
 done
 
 [ "$(id -u)" -eq 0 ] || { log_err "Run as root: sudo bash install.sh"; exit 1; }
-
 if [ -f /etc/os-release ]; then . /etc/os-release; else log_err "Unsupported OS"; exit 1; fi
 case "$ID" in debian|ubuntu) log_ok "Detected $PRETTY_NAME" ;; *) log_warn "Untested OS: ${PRETTY_NAME:-$ID} (continuing)";; esac
 
@@ -61,7 +62,7 @@ export DEBIAN_FRONTEND=noninteractive
 log_info "Installing system packages..."
 apt-get update -y >/dev/null || true
 apt-get install -y --no-install-recommends \
-  git curl wget ca-certificates openssl tar gzip iproute2 procps lsof \
+  git curl wget ca-certificates openssl tar gzip rsync iproute2 procps lsof \
   build-essential python3 make g++ pkg-config \
   qemu-system-x86 qemu-utils cloud-image-utils genisoimage \
   >/dev/null
@@ -73,22 +74,28 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -v | sed 's/v//' | cut -d. -f1
 fi
 log_ok "Node $(node -v), npm $(npm -v)"
 
-if [ -e /dev/kvm ]; then
-  chmod 666 /dev/kvm || true
-  log_ok "KVM detected (/dev/kvm)"
-else
-  log_warn "/dev/kvm not found - VMs will run in slow TCG mode unless nested virtualization/KVM is enabled"
-fi
+if [ -e /dev/kvm ]; then chmod 666 /dev/kvm || true; log_ok "KVM detected (/dev/kvm)";
+else log_warn "/dev/kvm not found - VMs will run in slow TCG mode unless KVM/nested virtualization is enabled"; fi
 
-if [ -d "$INSTALL_DIR/.git" ]; then
-  log_info "Updating existing repo in $INSTALL_DIR..."
-  git -C "$INSTALL_DIR" fetch --all --prune
-  git -C "$INSTALL_DIR" checkout "$BRANCH" || true
-  git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH" || true
+mkdir -p "$INSTALL_DIR"
+if [ "$FROM_GIT" -eq 1 ]; then
+  if [ -d "$INSTALL_DIR/.git" ]; then
+    log_info "Updating existing git repo in $INSTALL_DIR..."
+    git -C "$INSTALL_DIR" fetch --all --prune
+    git -C "$INSTALL_DIR" checkout "$BRANCH" || true
+    git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH" || true
+  else
+    log_info "Cloning $REPO_URL ($BRANCH) to $INSTALL_DIR..."
+    rm -rf "$INSTALL_DIR"
+    git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+  fi
 else
-  log_info "Cloning $REPO_URL ($BRANCH) to $INSTALL_DIR..."
-  rm -rf "$INSTALL_DIR"
-  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+  log_info "Copying bundled panel files to $INSTALL_DIR..."
+  rsync -a --delete \
+    --exclude='.git' --exclude='node_modules' --exclude='data' --exclude='vms' --exclude='storage' \
+    --exclude='public/uploads' --exclude='.env' --exclude='.env.*' --exclude='npm-debug.log*' \
+    --exclude='*.log' --exclude='.DS_Store' --exclude='scratch' --exclude='.vscode' \
+    "$SCRIPT_DIR/" "$INSTALL_DIR/"
 fi
 
 cd "$INSTALL_DIR"
@@ -116,11 +123,11 @@ else
   log_info ".env exists, keeping it"
 fi
 
-# MongoDB
 mongo_ok=0
-if node -e "require('dotenv').config();const {MongoClient}=require('mongodb');const c=new MongoClient(process.env.MONGO_URI||'mongodb://admin:password@127.0.0.1:27017/vpanel?authSource=admin',{serverSelectionTimeoutMS:2000});c.connect().then(()=>c.close()).then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
-  mongo_ok=1; log_ok "MongoDB reachable"
-fi
+mongo_check() {
+  node -e "require('dotenv').config();const {MongoClient}=require('mongodb');const c=new MongoClient(process.env.MONGO_URI||'mongodb://admin:password@127.0.0.1:27017/vpanel?authSource=admin',{serverSelectionTimeoutMS:2000});c.connect().then(()=>c.close()).then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1
+}
+if mongo_check; then mongo_ok=1; log_ok "MongoDB reachable"; fi
 if [ "$mongo_ok" -eq 0 ]; then
   if ! command -v docker >/dev/null 2>&1 && ! command -v mongod >/dev/null 2>&1; then
     log_info "Installing Docker for MongoDB..."
@@ -128,23 +135,13 @@ if [ "$mongo_ok" -eq 0 ]; then
     systemctl enable --now docker >/dev/null 2>&1 || service docker start >/dev/null 2>&1 || true
   fi
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    if docker ps -a --format '{{.Names}}' | grep -qx mongodb; then
-      docker start mongodb >/dev/null 2>&1 || true
-    else
-      docker run -d --name mongodb -p 27017:27017 \
-        -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password \
-        -v mongodb_data:/data/db --restart unless-stopped mongo:latest >/dev/null
-    fi
+    if docker ps -a --format '{{.Names}}' | grep -qx mongodb; then docker start mongodb >/dev/null 2>&1 || true;
+    else docker run -d --name mongodb -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -v mongodb_data:/data/db --restart unless-stopped mongo:latest >/dev/null; fi
   elif command -v mongod >/dev/null 2>&1; then
     systemctl enable --now mongod >/dev/null 2>&1 || systemctl enable --now mongodb >/dev/null 2>&1 || true
   fi
   log_info "Waiting for MongoDB..."
-  for i in $(seq 1 40); do
-    if node -e "require('dotenv').config();const {MongoClient}=require('mongodb');const c=new MongoClient(process.env.MONGO_URI||'mongodb://admin:password@127.0.0.1:27017/vpanel?authSource=admin',{serverSelectionTimeoutMS:1500});c.connect().then(()=>c.close()).then(()=>process.exit(0)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
-      mongo_ok=1; break
-    fi
-    sleep 1
-  done
+  for i in $(seq 1 40); do mongo_check && mongo_ok=1 && break; sleep 1; done
   [ "$mongo_ok" -eq 1 ] && log_ok "MongoDB ready" || log_warn "MongoDB not confirmed; check MONGO_URI/service"
 fi
 
@@ -167,7 +164,7 @@ const auth=require('./src/services/authService'); const {initDb,closeDb,collecti
   if(ex){ await auth.updateUser(ex.id,{password:p,role:'admin',root_admin:1,suspended:0,verified:1}); console.log('Admin updated:',u); }
   else { const nu=await auth.createUser({username:u,email:e,password:p,name:u,role:'admin',verified:1}); await collections.users.updateOne({id:nu.id},{\$set:{root_admin:1}}); console.log('Admin created:',u); }
   await closeDb();
-})().catch(e=>{console.error(e.message); process.exit(1);});" 
+})().catch(e=>{console.error(e.message); process.exit(1);});"
 
 if [ "$USE_PM2" -eq 1 ]; then
   command -v pm2 >/dev/null 2>&1 || npm install -g pm2 --no-audit --no-fund >/dev/null

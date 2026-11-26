@@ -1,0 +1,4 @@
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Event</th><th>User</th><th>Details</th><th>Time</th></tr></thead><tbody>
+<% if(!logs.length){ %><tr><td colspan="4"><div class="table-empty">No activity recorded.</div></td></tr><% } %>
+<% logs.forEach(l=>{ %><tr><td style="font-weight:500"><%= l.event %></td><td class="muted"><%= l.username || ('User #'+l.user_id) %></td><td class="muted" style="max-width:420px;white-space:normal"><%= l.details?JSON.stringify(l.details):'—' %></td><td class="muted"><%= new Date(l.created_at||l.created||Date.now()).toLocaleString() %></td></tr><% }) %>
+</tbody></table></div></div>

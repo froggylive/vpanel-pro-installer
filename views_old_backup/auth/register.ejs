@@ -1,0 +1,70 @@
+<%- include('../partials/head', { title: 'Create Account' }) %>
+<%- include('../partials/ambient') %>
+<div class="auth-wrap">
+  <div class="auth-card" style="position:relative;overflow:hidden">
+    <!-- Arix Logo & Header -->
+    <div class="auth-logo" style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px">
+      <% const pn = settings['panel.name'] || 'vPanel Pro'; 
+         let lg = '';
+         if (settings['panel.logo_mode']==='upload' && settings['panel.logo_file']) lg = settings['panel.logo_file'];
+         else if (settings['panel.logo_mode']==='url' && settings['panel.logo_url']) lg = settings['panel.logo_url'];
+         if (!lg) lg = '/arix/Arix.png';
+      %>
+      <img src="<%= lg %>" alt="Arix Logo" style="height:48px;border-radius:10px;margin-bottom:12px;filter:drop-shadow(0 4px 14px rgba(74,53,207,0.4))"/>
+      <span style="font-size:22px;font-weight:700;color:var(--gray-50);letter-spacing:-0.4px"><%= pn %></span>
+    </div>
+
+    <!-- Arix Auth Tabs -->
+    <div style="display:flex;gap:8px;background:var(--gray-800);padding:4px;border-radius:var(--radius-input);border:1px solid var(--border);margin-bottom:22px">
+      <a href="/login" style="flex:1;text-align:center;padding:7px;border-radius:var(--radius-sm);font-weight:600;font-size:13px;color:var(--gray-300);text-decoration:none">Sign In</a>
+      <a href="/register" style="flex:1;text-align:center;padding:7px;border-radius:var(--radius-sm);font-weight:600;font-size:13px;background:var(--primary);color:#fff;text-decoration:none">Sign Up</a>
+    </div>
+
+    <% if (typeof allowed !== 'undefined' && !allowed) { %>
+      <div class="alert alert-error mb-3">Registration is currently closed by administrator.</div>
+      <p class="muted text-sm mb-4" style="text-align:center">Please contact support or sign in with an existing account.</p>
+      <a href="/login" class="btn btn-primary btn-block" style="padding:12px;font-weight:700;font-size:14px">
+        Sign In to Account
+      </a>
+    <% } else { %>
+
+      <% if (typeof error !== 'undefined' && error) { %><div class="alert alert-error"><%= error %></div><% } %>
+      <% if (typeof success !== 'undefined' && success) { %><div class="alert alert-success"><%= success %></div><% } %>
+
+      <form method="post" action="/register">
+        <div class="form-group mb-3">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" name="name" value="<%= typeof name !== 'undefined' ? name : '' %>" placeholder="John Doe"/>
+        </div>
+        <div class="form-row mb-3">
+          <div class="form-group" style="margin:0">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" value="<%= typeof username !== 'undefined' ? username : '' %>" placeholder="johndoe" required/>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="<%= typeof email !== 'undefined' ? email : '' %>" placeholder="john@example.com" required/>
+          </div>
+        </div>
+        <div class="form-row mb-3">
+          <div class="form-group" style="margin:0">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required/>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label for="password2">Confirm</label>
+            <input type="password" id="password2" name="password2" placeholder="••••••••" required/>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block mt-4" style="padding:12px;font-weight:700;font-size:14px">
+          Create Account
+        </button>
+      </form>
+
+      <div class="auth-foot" style="margin-top:24px;text-align:center">
+        <span class="muted text-sm">Already have an account?</span> <a href="/login" style="font-weight:600;color:var(--primary-light);margin-left:4px">Sign In</a>
+      </div>
+    <% } %>
+  </div>
+</div>
+<%- include('../partials/foot') %>

@@ -1,0 +1,64 @@
+<%
+const panelName = settings['panel.name'] || 'vPanel Pro';
+const favName = settings['panel.favicon_name'] || panelName;
+let favicon = '';
+if (settings['panel.favicon_mode'] === 'upload' && settings['panel.favicon_file']) favicon = settings['panel.favicon_file'];
+else if (settings['panel.favicon_mode'] === 'url' && settings['panel.favicon_url']) favicon = settings['panel.favicon_url'];
+if (!favicon) {
+  favicon = "/arix/Arix.png";
+}
+const arixPrimary = settings['arix.primary'] || settings['panel.accent'] || '#4A35CF';
+const radiusBox = settings['arix.radius_box'] || '10px';
+const radiusInput = settings['arix.radius_input'] || '8px';
+const theme = settings['arix.mode'] || settings['panel.theme'] || 'dark';
+const navbarTransparent = settings['panel.navbar_transparent'] === '1' || settings['panel.navbar_transparent'] === true;
+const navbarBlur = settings['panel.navbar_blur'] === '1' || settings['panel.navbar_blur'] === true;
+const navbarStyle = settings['panel.navbar_style'] || 'glass';
+%><!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
+<title><%= panelName %> - <%= title %></title>
+<link rel="icon" href="<%= favicon %>"/>
+<link rel="stylesheet" href="/css/panel.css"/>
+<script src="/vendor/lucide.min.js"></script>
+<% if (typeof styles !== 'undefined') { for (const s of styles) { %><link rel="stylesheet" href="<%= s %>"/><% } } %>
+<% if (typeof scripts !== 'undefined') { for (const s of scripts) { %><script src="<%= s %>"></script><% } } %>
+<style>
+:root, html, html[data-theme="dark"], body {
+  --primary: <%= arixPrimary %>;
+  --accent: <%= arixPrimary %>;
+  --radius-box: <%= radiusBox %>;
+  --radius-input: <%= radiusInput %>;
+  --radius: <%= radiusBox %>;
+}
+</style>
+<script>
+window.VP_CONFIG = { apiPort: 3002 };
+window.VP_TOKEN = "<%= (typeof token !== 'undefined' && token) ? token : '' %>";
+function vpApiBase() { return ''; }
+function vpToken() {
+  const m = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+  return (m ? decodeURIComponent(m[1]) : '') || (window.VP_TOKEN || '');
+}
+
+// Synchronize theme with localStorage
+(function() {
+  try {
+    const saved = localStorage.getItem('arix_theme') || localStorage.getItem('theme');
+    if (saved && (saved === 'dark' || saved === 'light')) {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  } catch(e) {}
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+});
+</script>
+</head>
+<body class="<%= navbarStyle === 'glass' ? '' : 'nav-' + navbarStyle %> <%= navbarTransparent ? 'nav-transparent' : '' %> <%= navbarBlur ? 'nav-blur' : '' %> <%= (settings['panel.bg_mode'] && settings['panel.bg_mode'] !== 'color') ? 'bg-visible' : '' %>">

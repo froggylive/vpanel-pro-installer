@@ -1,0 +1,29 @@
+<%- include('../../partials/head', { title: 'Network - ' + currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:`server.${currentVm.id}.network`, navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { navArea:'user', breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name,href:`/server/${currentVm.id}`},{label:'Network'}] }) %>
+<main class="content">
+<style>.server-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}.server-tabs a{padding:10px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}.server-tabs a.active{color:#fff;border-bottom-color:var(--accent)}</style>
+<div class="page-head"><div><h1 class="page-title">Network</h1><p class="page-sub">Network configuration and allocation for <%= currentVm.name %>.</p></div></div>
+<div class="server-tabs"><a href="/server/<%=currentVm.id%>">Overview</a><a href="/server/<%=currentVm.id%>/console">Console</a><a href="/server/<%=currentVm.id%>/files">Files</a><a href="/server/<%=currentVm.id%>/network" class="active">Network</a><a href="/server/<%=currentVm.id%>/backups">Backups</a><a href="/server/<%=currentVm.id%>/snapshots">Snapshots</a><a href="/server/<%=currentVm.id%>/reinstall">Reinstall</a><a href="/server/<%=currentVm.id%>/activity">Activity</a></div>
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">IP Addresses</div></div><div class="card-b">
+    <div class="kv"><span class="k">Primary IPv4 (SSH)</span><span class="v mono">127.0.0.1:<%= currentVm.ssh_port %></span></div>
+    <div class="kv"><span class="k">VNC Port</span><span class="v mono"><%= currentVm.vnc_port || '—' %></span></div>
+    <div class="kv"><span class="k">Agent Port</span><span class="v mono"><%= currentVm.agent_port || '—' %></span></div>
+    <div class="kv"><span class="k">IPv6</span><span class="v muted">Not assigned</span></div>
+  </div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Network Info</div></div><div class="card-b">
+    <div class="kv"><span class="k">Mode</span><span class="v">QEMU User Networking</span></div>
+    <div class="kv"><span class="k">Gateway</span><span class="v mono">10.0.2.2</span></div>
+    <div class="kv"><span class="k">Netmask</span><span class="v mono">255.255.255.0</span></div>
+    <div class="kv"><span class="k">Interface</span><span class="v">virtio-net-pci</span></div>
+  </div></div>
+</div>
+<div class="card" style="margin-top:16px"><div class="card-h"><div class="card-t">Port Forwards</div></div><div class="card-b">
+  <p class="muted" style="font-size:13px">Port forwarding is managed by the VM networking configuration. Current configured forwards are shown below.</p>
+  <pre style="margin-top:12px;background:#0A0A0A;border:1px solid var(--border);padding:14px;border-radius:8px;font-size:12px;color:#D4D4D8;overflow:auto"><%= JSON.stringify(currentVm.port_forwards||[], null, 2) %></pre>
+</div></div>
+</main>
+</div>
+<%- include('../../partials/foot') %>

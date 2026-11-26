@@ -1,0 +1,15 @@
+<%- include('../../partials/head', { title: 'Security' }) %>
+<%- include('../../partials/sidebar', { activePage:'account-security', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Account'},{label:'Security'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Security</h1><p class="page-sub">Protect your account and review access.</p></div></div>
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">Change Password</div></div><div class="card-b"><form id="pwForm"><div class="field"><label class="label">Current Password</label><input class="input" type="password" name="current_password" required></div><div class="field"><label class="label">New Password</label><input class="input" type="password" name="new_password" required minlength="8"></div><button class="btn btn-primary">Update Password</button></form></div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Two-Factor Authentication</div></div><div class="card-b"><p class="muted" style="font-size:13px;margin-top:0">2FA setup/disable depends on existing auth backend endpoints. If your account has 2FA configured, use the existing settings flow; this redesign avoids faking TFA state.</p><a href="/settings" class="btn">Open Legacy TFA Settings</a></div></div>
+</div>
+<div class="card" style="margin-top:16px"><div class="card-h"><div class="card-t">Login History</div></div><div class="card-b" style="padding:0">
+  <% if(!loginHistory.length){ %><div class="table-empty">No login history.</div><% } %>
+  <% loginHistory.forEach(l=>{ %><div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><div><div style="font-size:13px"><%= l.success?'Successful login':'Failed login' %></div><div class="muted2" style="font-size:12px"><%= l.user_agent||'—' %></div></div><div class="muted2" style="font-size:12px;text-align:right"><div><%= l.ip||'—' %></div><div><%= new Date(l.created_at||Date.now()).toLocaleString() %></div></div></div><% }) %>
+</div></div>
+</main></div>
+<script>pwForm.onsubmit=async e=>{e.preventDefault(); const fd=new FormData(e.target); try{ await VP.api('/account/security/password',{method:'POST',body:Object.fromEntries(fd)}); VP.toast('Password updated','success'); e.target.reset(); }catch(err){VP.toast(err.message,'error')} }</script>
+<%- include('../../partials/foot') %>

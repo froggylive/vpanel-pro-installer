@@ -1,0 +1,65 @@
+<%- include('../../partials/head', { title: currentVm.name }) %>
+<%- include('../../partials/sidebar', { activePage:'server.overview', navArea:'user', currentVm }) %>
+<div class="main-wrap">
+<%- include('../../partials/topbar', { breadcrumbs:[{label:'Servers',href:'/servers'},{label:currentVm.name}] }) %>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><h1 class="page-title" style="margin:0"><%= currentVm.name %></h1><span class="badge <%= currentVm.status==='running'?'badge-green':currentVm.status==='suspended'?'badge-red':'badge-gray' %>" id="statusBadge"><%= currentVm.status %></span></div>
+      <p class="page-sub mono">#<%= currentVm.id %> · <%= currentVm.ssh_port?`127.0.0.1:${currentVm.ssh_port}`:'No IP' %> · <%= currentVm.node_name||'Local Node' %></p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" onclick="power('start')">Start</button>
+      <button class="btn" onclick="power('restart')">Restart</button>
+      <button class="btn" onclick="power('stop')">Stop</button>
+      <button class="btn btn-danger" onclick="power('kill')">Force Stop</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <a href="/server/<%=currentVm.id%>" class="active">Overview</a>
+    <a href="/server/<%=currentVm.id%>/console">Console</a>
+    <a href="/server/<%=currentVm.id%>/files">Files</a>
+    <a href="/server/<%=currentVm.id%>/network">Network</a>
+    <a href="/server/<%=currentVm.id%>/backups">Backups</a>
+    <a href="/server/<%=currentVm.id%>/snapshots">Snapshots</a>
+    <a href="/server/<%=currentVm.id%>/reinstall">Reinstall</a>
+    <a href="/server/<%=currentVm.id%>/activity">Activity</a>
+  </div>
+  <div class="grid g-4" style="margin-bottom:20px">
+    <div class="card"><div class="card-b"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span class="muted">CPU</span><span id="cpuMeta" class="muted">—</span></div><div style="font-size:22px;font-weight:700;margin-bottom:8px" id="cpuVal">—</div><div class="progress"><span id="cpuBar" style="width:0%"></span></div></div></div>
+    <div class="card"><div class="card-b"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span class="muted">Memory</span><span id="memMeta" class="muted">—</span></div><div style="font-size:22px;font-weight:700;margin-bottom:8px" id="memVal">—</div><div class="progress"><span id="memBar" style="width:0%"></span></div></div></div>
+    <div class="card"><div class="card-b"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span class="muted">Disk</span><span id="diskMeta" class="muted">—</span></div><div style="font-size:22px;font-weight:700;margin-bottom:8px" id="diskVal">—</div><div class="progress"><span id="diskBar" style="width:0%"></span></div></div></div>
+    <div class="card"><div class="card-b"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span class="muted">Network</span><span id="netMeta" class="muted">—</span></div><div style="font-size:22px;font-weight:700;margin-bottom:8px" id="netVal">—</div><div class="muted2" style="font-size:12px">Live throughput not exposed by backend</div></div></div>
+  </div>
+  <div class="grid g-2">
+    <div class="card"><div class="card-h"><div class="card-t">Server Details</div></div><div class="card-b">
+      <div class="kv"><span class="k">Server ID</span><span class="v mono">#<%= currentVm.id %></span></div>
+      <div class="kv"><span class="k">UUID</span><span class="v mono" style="font-size:11px"><%= currentVm.uuid %></span></div>
+      <div class="kv"><span class="k">Node</span><span class="v"><%= currentVm.node_name||'Local Node' %></span></div>
+      <div class="kv"><span class="k">OS</span><span class="v"><%= currentVm.os_name || currentVm.os_type || '—' %></span></div>
+      <div class="kv"><span class="k">IP / SSH</span><span class="v mono"><%= currentVm.ssh_port?`127.0.0.1:${currentVm.ssh_port}`:'—' %></span></div>
+      <div class="kv"><span class="k">Memory</span><span class="v"><%= (Number(currentVm.memory||0)/1024).toFixed(1) %> GB</span></div>
+      <div class="kv"><span class="k">vCPUs</span><span class="v"><%= currentVm.cpus %></span></div>
+      <div class="kv"><span class="k">Disk</span><span class="v"><%= currentVm.disk_size %></span></div>
+    </div></div>
+    <div class="card"><div class="card-h"><div class="card-t">Recent Activity</div></div><div class="card-b" style="padding:0">
+      <% if (!recent.length) { %><div class="table-empty">No recent activity.</div><% } %>
+      <% recent.forEach(l => { %><div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:500"><%= l.event %></div><div class="muted2" style="font-size:12px"><%= l.details ? JSON.stringify(l.details).slice(0,100) : '' %></div></div><div class="muted2" style="font-size:12px;white-space:nowrap"><%= new Date(l.created_at||l.created||Date.now()).toLocaleString() %></div></div><% }) %>
+    </div></div>
+  </div>
+</main>
+</div>
+<script>
+const vmId=<%= currentVm.id %>;
+async function power(action){ try{ await VP.api(`/server/${vmId}/power`,{method:'POST',body:{action}}); VP.toast(`Command sent: ${action}`,'success'); setTimeout(refresh,800); }catch(e){VP.toast(e.message,'error');} }
+function bar(el,n){ n=Math.max(0,Math.min(100,Number(n||0))); el.style.width=n+'%'; el.style.background=n>90?'var(--red)':n>70?'var(--yellow)':'#fff'; }
+async function refresh(){ try{ const r=await VP.api(`/server/${vmId}/status`); const s=r.stats||r;
+  const sb=document.getElementById('statusBadge'); sb.className='badge '+(s.status==='running'?'badge-green':s.status==='suspended'?'badge-red':'badge-gray'); sb.textContent=s.status;
+  const cpu=Number(s.cpu?.percent||0); cpuVal.textContent=cpu.toFixed(1)+'%'; cpuMeta.textContent=`${s.cpu?.cpus||<%=currentVm.cpus%>} vCPU`; bar(cpuBar,cpu);
+  const mu=Number(s.memory?.used_mb||0), mt=Number(s.memory?.total_mb||1), mp=Number(s.memory?.percent||(mu/mt*100)); memVal.textContent=(mu/1024).toFixed(2)+' GB'; memMeta.textContent=`of ${(mt/1024).toFixed(1)} GB`; bar(memBar,mp);
+  const du=Number(s.disk?.actual_mb||0), dp=Number(s.disk?.percent||0), dt=Number(s.disk?.allocated_mb||0); diskVal.textContent=(du/1024).toFixed(2)+' GB'; diskMeta.textContent=dt?`of ${(dt/1024).toFixed(1)} GB`:'<%=currentVm.disk_size%>'; bar(diskBar,dp);
+  netVal.textContent='—'; netMeta.textContent=s.ports?`SSH :${s.ports.ssh}`:'';
+}catch(e){} }
+refresh(); setInterval(refresh, 10000);
+</script>
+<%- include('../../partials/foot') %>

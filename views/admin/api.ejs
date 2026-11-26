@@ -1,0 +1,56 @@
+<%- include('../partials/head', { title: 'API Management' }) %>
+<%- include('../partials/sidebar', { activePage:'admin-api', navArea:'admin' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Admin',href:'/admin'},{label:'API Management'}] }) %>
+<main class="content">
+  <div class="page-head">
+    <div><h1 class="page-title">API Management</h1><p class="page-sub">Create and manage platform API keys.</p></div>
+    <div class="page-actions"><button class="btn btn-primary" onclick="openCreate()">Create API Key</button></div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Preview</th><th>Scopes</th><th>Created</th><th>Last Used</th><th style="text-align:right">Actions</th></tr></thead><tbody id="keysBody">
+      <% if(!keys || !keys.length){ %><tr><td colspan="6"><div class="table-empty">No API keys found.</div></td></tr><% } %>
+      <% (keys||[]).forEach(k=>{ %><tr>
+        <td style="font-weight:500"><%= k.name %></td>
+        <td class="mono muted"><%= k.key_preview||'—' %></td>
+        <td class="muted" style="font-size:12px"><%= (k.scopes||[]).join(', ')||'—' %></td>
+        <td class="muted"><%= k.created_at?new Date(k.created_at).toLocaleDateString():'—' %></td>
+        <td class="muted"><%= k.last_used_at?new Date(k.last_used_at).toLocaleString():'Never' %></td>
+        <td style="text-align:right"><button class="btn btn-sm btn-danger" onclick="revokeKey(<%=k.id%>)">Revoke</button></td>
+      </tr><% }) %>
+    </tbody></table></div>
+  </div>
+
+  <div id="createModal" class="modal-overlay" style="display:none">
+    <div class="modal" style="max-width:560px">
+      <h3>Create API Key</h3>
+      <p>The secret key will be shown only once after creation.</p>
+      <div class="field"><label class="label">Name</label><input id="keyName" class="input" placeholder="My API key"></div>
+      <div class="field"><label class="label">Scopes (comma separated)</label><input id="keyScopes" class="input" value="vms:read,vms:write" placeholder="vms:read,vms:write"></div>
+      <div id="createdKeyWrap" style="display:none;margin-bottom:16px"><label class="label">New API Key</label><input id="createdKey" class="input mono" readonly><div class="hint">Copy this now. It will not be shown again.</div></div>
+      <div class="modal-actions"><button class="btn" onclick="closeCreate()">Close</button><button class="btn btn-primary" id="createBtn" onclick="createKey()">Create</button></div>
+    </div>
+  </div>
+</main></div>
+<script>
+function openCreate(){ document.getElementById('createModal').style.display='grid'; document.getElementById('createdKeyWrap').style.display='none'; document.getElementById('keyName').value=''; }
+function closeCreate(){ document.getElementById('createModal').style.display='none'; location.reload(); }
+async function createKey(){
+  const name=document.getElementById('keyName').value.trim()||'API Key';
+  const scopes=document.getElementById('keyScopes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const btn=document.getElementById('createBtn'); btn.disabled=true; btn.textContent='Creating...';
+  try{
+    const r=await VP.api('/admin/api/api/keys/create',{method:'POST',body:{name,scopes}});
+    const raw=r.key?.raw_key||r.raw_key||r.key?.key;
+    if(raw){ document.getElementById('createdKey').value=raw; document.getElementById('createdKeyWrap').style.display='block'; }
+    VP.toast('API key created','success');
+  }catch(e){ VP.toast(e.message,'error'); }
+  btn.disabled=false; btn.textContent='Create';
+}
+async function revokeKey(id){
+  if(!await VP.confirm('Revoke this API key? This cannot be undone.',{danger:true})) return;
+  try{ await VP.api('/admin/api/api/keys/revoke',{method:'POST',body:{id}}); VP.toast('API key revoked','success'); location.reload(); }
+  catch(e){ VP.toast(e.message,'error'); }
+}
+</script>
+<%- include('../partials/foot') %>

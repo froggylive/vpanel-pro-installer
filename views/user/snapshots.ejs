@@ -1,0 +1,6 @@
+<%- include('../partials/head', { title: 'Snapshots' }) %>
+<%- include('../partials/sidebar', { activePage:'snapshots', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'VDS Management'},{label:'Snapshots'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Snapshots</h1><p class="page-sub">Disk snapshots for your VDS instances.</p></div></div>
+<div class="card"><div class="card-b"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><h3>Snapshots unavailable</h3><p>QEMU snapshot lifecycle is not exposed by the current backend. Use Backups for real disk recovery.</p><a href="/backups" class="btn btn-primary">Go to Backups</a></div></div></div>
+</main></div><%- include('../partials/foot') %>

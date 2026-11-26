@@ -1,0 +1,329 @@
+<%- include('../partials/head', { title: 'Node Management' }) %>
+<%- include('../partials/ambient') %>
+<%- include('../partials/topbar') %>
+<%- include('../partials/sidebar') %>
+
+<%
+  const nodeList = (typeof nodes !== 'undefined' && nodes) || [];
+  const stats = (typeof nodeStats !== 'undefined' && nodeStats) || {};
+  const filterVal = (typeof filterQuery !== 'undefined' && filterQuery) || '';
+%>
+
+<div class="main">
+  <!-- Breadcrumbs -->
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;display:flex;align-items:center;gap:6px">
+    <a href="/admin" style="color:var(--text-muted);text-decoration:none">Admin</a>
+    <span>/</span>
+    <span style="color:var(--accent);font-weight:600">Nodes</span>
+  </div>
+
+  <!-- Header -->
+  <div class="flex-between mb-4" style="flex-wrap:wrap;gap:12px">
+    <div>
+      <h2 style="font-size:24px;font-weight:800;letter-spacing:-0.4px;margin:0">Nodes</h2>
+      <div class="muted" style="margin-top:2px">All hypervisor nodes and compute hosts available on the system.</div>
+    </div>
+    <div class="flex" style="gap:10px">
+      <a class="btn btn-primary" href="/admin/nodes/create" style="background:#10b981;border-color:#10b981;display:flex;align-items:center;gap:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
+        Create New Node
+      </a>
+    </div>
+  </div>
+
+  <!-- Mass Actions Section (matching Pterodactyl index.blade.php) -->
+  <% if (user && (user.root_admin || user.role === 'admin')) { %>
+  <div class="card mb-4" id="ma-node-section" style="border:1px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.03);padding:18px">
+    <div class="flex-between mb-3" style="border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:10px">
+      <div style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;color:#60a5fa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Mass Actions
+      </div>
+      <span id="ma-selected-count" class="pill pill-blue font-bold" style="font-size:11px;padding:3px 10px">0 nodes selected</span>
+    </div>
+
+    <div class="grid grid-3" style="gap:18px;align-items:start">
+      <!-- 1. Set App Name -->
+      <div>
+        <div class="muted text-sm font-bold mb-1" style="color:var(--text);display:flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          Set App Name
+        </div>
+        <p class="muted text-sm" style="font-size:11.5px;margin-bottom:8px">Applies to selected nodes' Wings configuration.</p>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="ma-app-name" placeholder="e.g. vPanel Pro" style="height:32px;padding:4px 8px;font-size:12px;border-radius:6px;width:100%"/>
+          <button id="ma-btn-appname" type="button" class="btn btn-sm btn-primary" onclick="massApplyAppName()" disabled style="font-size:11px;padding:4px 10px;white-space:nowrap">Apply</button>
+        </div>
+        <div id="ma-appname-result" style="margin-top:6px;font-size:11.5px"></div>
+      </div>
+
+      <!-- 2. Wings Service Controls -->
+      <div>
+        <div class="muted text-sm font-bold mb-1" style="color:var(--text);display:flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Wings Service
+        </div>
+        <p class="muted text-sm" style="font-size:11.5px;margin-bottom:8px">Control Wings daemon across selected nodes.</p>
+        <div class="flex" style="gap:6px">
+          <button id="ma-btn-start" type="button" class="btn btn-sm btn-green" onclick="massWingsAction('start')" disabled style="font-size:11px;padding:3px 8px">Start</button>
+          <button id="ma-btn-restart" type="button" class="btn btn-sm" onclick="massWingsAction('restart')" disabled style="font-size:11px;padding:3px 8px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#fbbf24">Restart</button>
+          <button id="ma-btn-stop" type="button" class="btn btn-sm btn-danger" onclick="massWingsAction('stop')" disabled style="font-size:11px;padding:3px 8px">Stop</button>
+        </div>
+        <div id="ma-wings-result" style="margin-top:6px;font-size:11.5px"></div>
+      </div>
+
+      <!-- 3. Selection Shortcuts -->
+      <div>
+        <div class="muted text-sm font-bold mb-1" style="color:var(--text);display:flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Selection
+        </div>
+        <p class="muted text-sm" style="font-size:11.5px;margin-bottom:8px">Use table checkboxes or shortcuts below.</p>
+        <div class="flex" style="gap:6px">
+          <button type="button" class="btn btn-sm" onclick="massSelectAll()" style="font-size:11px;padding:3px 8px">Select All</button>
+          <button type="button" class="btn btn-sm" onclick="massDeselectAll()" style="font-size:11px;padding:3px 8px">Deselect All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- Node List Main Table Card (matching Pterodactyl index.blade.php) -->
+  <div class="card mb-4">
+    <div class="flex-between mb-3" style="align-items:center;gap:16px;flex-wrap:wrap">
+      <div class="card-title" style="margin:0;display:flex;align-items:center;gap:8px;white-space:nowrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+        Node List (<span id="nodeCount"><%= nodeList.length %></span>)
+      </div>
+
+      <!-- Filters & Search -->
+      <div class="flex" style="gap:8px;align-items:center;flex-wrap:nowrap">
+        <div style="position:relative;width:220px">
+          <input type="search" id="nodeFilter" value="<%= filterVal %>" placeholder="Search nodes…" style="width:100%;height:34px;padding:6px 10px 6px 30px;font-size:12px;border-radius:6px;box-sizing:border-box"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <% if (nodeList.length === 0) { %>
+      <div class="empty" style="padding:36px;text-align:center">
+        <p style="font-size:15px;font-weight:600;color:var(--text)">No nodes configured</p>
+        <p class="muted">No compute nodes have been added yet.</p>
+        <div class="mt-3"><a href="/admin/nodes/create" class="btn btn-primary">Create First Node</a></div>
+      </div>
+    <% } else { %>
+      <div class="table-wrap">
+        <table id="nodeTable">
+          <thead>
+            <tr>
+              <th style="width:36px;text-align:center" class="muted">☰</th>
+              <% if (user && (user.root_admin || user.role === 'admin')) { %>
+                <th style="width:36px;text-align:center">
+                  <input type="checkbox" id="ma-check-all" title="Select all on this page" onclick="massToggleAll(this.checked)" style="width:16px;height:16px;cursor:pointer"/>
+                </th>
+              <% } %>
+              <th style="width:36px;text-align:center">Ping</th>
+              <th>Name</th>
+              <th>Location</th>
+              <th>Memory</th>
+              <th>Disk</th>
+              <th class="text-center">Servers</th>
+              <th class="text-center">Limit</th>
+              <th class="text-center">SSL</th>
+              <th class="text-center">Public</th>
+              <th style="width:140px;text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (const n of nodeList) { 
+                 const locName = n.location ? n.location.short : 'local';
+                 const isSsl = n.scheme === 'https';
+            %>
+              <tr class="node-row" data-search="<%= `${n.name} ${n.fqdn} ${locName}`.toLowerCase() %>">
+                <td style="text-align:center;color:var(--text-muted);cursor:grab">⋮⋮</td>
+                <% if (user && (user.root_admin || user.role === 'admin')) { %>
+                  <td style="text-align:center">
+                    <input type="checkbox" class="ma-node-check" data-node-id="<%= n.id %>" data-node-name="<%= n.name %>" onchange="massUpdateUI()" style="width:16px;height:16px;cursor:pointer"/>
+                  </td>
+                <% } %>
+                <td style="text-align:center">
+                  <span class="pill pill-green" title="Wings daemon online" style="padding:0;width:9px;height:9px;border-radius:50%;display:inline-block"></span>
+                </td>
+                <td>
+                  <a href="/admin/nodes/<%= n.id %>" style="font-weight:700;color:#fff;text-decoration:none;font-size:13.5px">
+                    <%= n.name %>
+                  </a>
+                  <div class="muted text-sm mono" style="font-size:10.5px"><%= n.scheme %>://<%= n.fqdn %>:<%= n.daemonListen || 8080 %></div>
+                </td>
+                <td style="white-space:nowrap">
+                  <span class="pill pill-gray font-bold" style="font-size:11px"><%= locName %></span>
+                </td>
+                <td style="white-space:nowrap">
+                  <div class="font-bold text-white"><%= n.allocated_memory || 0 %> / <%= n.memory %> MiB</div>
+                </td>
+                <td style="white-space:nowrap">
+                  <div class="font-bold text-white"><%= n.allocated_disk || 0 %> / <%= n.disk %> MiB</div>
+                </td>
+                <td class="text-center">
+                  <span class="pill pill-blue font-bold" style="font-size:11px"><%= n.servers_count || 0 %></span>
+                </td>
+                <td class="text-center muted">
+                  <%= n.server_limit ? n.server_limit : '—' %>
+                </td>
+                <td class="text-center">
+                  <% if (isSsl) { %>
+                    <span style="color:#10b981" title="SSL Encrypted (HTTPS)">🔒</span>
+                  <% } else { %>
+                    <span style="color:#ef4444" title="HTTP (No SSL)">🔓</span>
+                  <% } %>
+                </td>
+                <td class="text-center">
+                  <% if (n.public) { %>
+                    <span title="Public Node" style="color:#38bdf8">👁</span>
+                  <% } else { %>
+                    <span title="Private Node" style="color:var(--text-muted)">🚫</span>
+                  <% } %>
+                </td>
+                <td style="text-align:right;white-space:nowrap">
+                  <div class="flex" style="gap:4px;justify-content:flex-end">
+                    <a class="btn btn-sm" href="/admin/nodes/<%= n.id %>" style="padding:3px 8px;font-size:11px">Manage</a>
+                    <a class="btn btn-sm" href="/admin/nodes/<%= n.id %>#settings" style="padding:3px 7px;font-size:11px" title="Settings">⚙</a>
+                  </div>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Live Cluster Telemetry Hero Bar (Preserves live host performance stats) -->
+  <div class="card">
+    <div class="flex-between mb-3">
+      <div class="card-title" style="margin:0;display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Primary Host Live Telemetry
+      </div>
+      <div class="flex" style="gap:8px">
+        <span class="pill pill-green font-bold">● <%= stats.hostname || 'Primary Hypervisor' %> Online</span>
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="gap:16px">
+      <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div class="muted text-sm font-bold">Host CPU Load</div>
+        <div style="font-size:22px;font-weight:800;color:#fff;margin:4px 0"><%= stats.cpu ? stats.cpu.percent : 0 %>%</div>
+        <div class="muted text-sm mono" style="font-size:11px"><%= stats.cpu ? stats.cpu.cores_count : 2 %> Cores · Load <%= stats.cpu && stats.cpu.load_avg ? stats.cpu.load_avg.join(', ') : '0.00' %></div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div class="muted text-sm font-bold">Host Memory (RAM)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent);margin:4px 0"><%= stats.memory ? stats.memory.percent : 0 %>%</div>
+        <div class="muted text-sm mono" style="font-size:11px"><%= stats.memory ? `${stats.memory.used_mb} / ${stats.memory.total_mb} MB` : '0 MB' %></div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div class="muted text-sm font-bold">Host Disk Usage</div>
+        <div style="font-size:22px;font-weight:800;color:#10b981;margin:4px 0"><%= stats.disk ? stats.disk.percent : 0 %>%</div>
+        <div class="muted text-sm mono" style="font-size:11px"><%= stats.disk ? `${stats.disk.used_gb} / ${stats.disk.total_gb} GB` : '0 GB' %></div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div class="muted text-sm font-bold">System Uptime</div>
+        <div style="font-size:20px;font-weight:800;color:#fbbf24;margin:4px 0"><%= Math.floor((stats.uptime_seconds || 0) / 3600) %>h <%= Math.floor(((stats.uptime_seconds || 0) % 3600) / 60) %>m</div>
+        <div class="muted text-sm" style="font-size:11px">Process: <%= Math.floor((stats.process_uptime || 0) / 60) %>m</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<%- include('../partials/music') %>
+<%- include('../partials/foot') %>
+
+<script>
+// Filter Search Logic
+document.getElementById('nodeFilter')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  let count = 0;
+  document.querySelectorAll('.node-row').forEach(row => {
+    const text = row.getAttribute('data-search') || '';
+    const match = !q || text.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) count++;
+  });
+  const countEl = document.getElementById('nodeCount');
+  if (countEl) countEl.textContent = count;
+});
+
+// Mass Actions Logic
+function massGetSelectedIds() {
+  return Array.from(document.querySelectorAll('.ma-node-check:checked'))
+              .map(cb => parseInt(cb.getAttribute('data-node-id'), 10));
+}
+
+function massUpdateUI() {
+  const ids = massGetSelectedIds();
+  const count = ids.length;
+  const countEl = document.getElementById('ma-selected-count');
+  if (countEl) countEl.textContent = `${count} node${count === 1 ? '' : 's'} selected`;
+
+  const disabled = count === 0;
+  ['ma-btn-appname', 'ma-btn-start', 'ma-btn-restart', 'ma-btn-stop'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+
+  const allCb = document.getElementById('ma-check-all');
+  if (allCb) {
+    const all = document.querySelectorAll('.ma-node-check');
+    allCb.checked = all.length > 0 && count === all.length;
+    allCb.indeterminate = count > 0 && count < all.length;
+  }
+}
+
+function massToggleAll(checked) {
+  document.querySelectorAll('.ma-node-check').forEach(cb => { cb.checked = checked; });
+  massUpdateUI();
+}
+
+function massSelectAll() { massToggleAll(true); }
+function massDeselectAll() { massToggleAll(false); }
+
+async function massApplyAppName() {
+  const ids = massGetSelectedIds();
+  if (!ids.length) return;
+  const app_name = document.getElementById('ma-app-name').value.trim();
+  const resultEl = document.getElementById('ma-appname-result');
+  if (resultEl) resultEl.innerHTML = '<span class="muted">Applying app name...</span>';
+
+  try {
+    const res = await VP.api('/admin/nodes/mass/app-name', {
+      method: 'POST',
+      body: { node_ids: ids, app_name }
+    });
+    VP.toast(`Updated ${res.updated || 0} node(s)`, 'success');
+    if (resultEl) resultEl.innerHTML = `<span style="color:#10b981">✔ Updated ${res.updated || 0} node(s)</span>`;
+  } catch (e) {
+    VP.toast(e.message, 'error');
+    if (resultEl) resultEl.innerHTML = `<span style="color:#ef4444">✖ ${e.message}</span>`;
+  }
+}
+
+async function massWingsAction(action) {
+  const ids = massGetSelectedIds();
+  if (!ids.length) return;
+  const resultEl = document.getElementById('ma-wings-result');
+  if (resultEl) resultEl.innerHTML = `<span class="muted">Sending ${action}...</span>`;
+
+  try {
+    await VP.api('/admin/nodes/mass/wings-control', {
+      method: 'POST',
+      body: { node_ids: ids, action }
+    });
+    VP.toast(`Wings action '${action}' dispatched to ${ids.length} node(s)`, 'success');
+    if (resultEl) resultEl.innerHTML = `<span style="color:#10b981">✔ Dispatched to ${ids.length} node(s)</span>`;
+  } catch (e) {
+    VP.toast(e.message, 'error');
+    if (resultEl) resultEl.innerHTML = `<span style="color:#ef4444">✖ ${e.message}</span>`;
+  }
+}
+</script>

@@ -1,0 +1,9 @@
+<%- include('../../partials/head', { title: 'Account Settings' }) %>
+<%- include('../../partials/sidebar', { activePage:'account-settings', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Account'},{label:'Settings'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Settings</h1><p class="page-sub">Appearance and account preferences.</p></div></div>
+<div class="grid g-2">
+  <div class="card"><div class="card-h"><div class="card-t">Appearance</div></div><div class="card-b"><p class="muted" style="font-size:13px;margin-top:0">The new vPanel GUI uses a premium dark design system by default. Theme toggles are only shown when backed by real persisted preferences.</p></div></div>
+  <div class="card"><div class="card-h"><div class="card-t">Notifications / Locale</div></div><div class="card-b"><p class="muted" style="font-size:13px;margin-top:0">Notification and locale preferences can be wired to existing backend settings where available. No fake save controls are exposed.</p></div></div>
+</div>
+</main></div><%- include('../../partials/foot') %>

@@ -1,0 +1,8 @@
+<%- include('../partials/head', { title: 'Activity' }) %>
+<%- include('../partials/sidebar', { activePage:'account-activity', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../partials/topbar', { breadcrumbs:[{label:'Account'},{label:'Activity'}] }) %>
+<main class="content"><div class="page-head"><div><h1 class="page-title">Account Activity</h1><p class="page-sub">Recent actions performed on your account.</p></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Event</th><th>VDS</th><th>Details</th><th>Time</th></tr></thead><tbody>
+<% if(!logs.length){ %><tr><td colspan="4"><div class="table-empty">No activity recorded.</div></td></tr><% } %>
+<% logs.forEach(l=>{ %><tr><td style="font-weight:500"><%= l.event %></td><td class="muted"><%= l.vm_id?('#'+l.vm_id):'—' %></td><td class="muted" style="max-width:420px;white-space:normal"><%= l.details?JSON.stringify(l.details):'—' %></td><td class="muted"><%= new Date(l.created_at||l.created||Date.now()).toLocaleString() %></td></tr><% }) %>
+</tbody></table></div></div></main></div><%- include('../partials/foot') %>

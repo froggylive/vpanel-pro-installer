@@ -1,0 +1,29 @@
+<%- include('../partials/head', { title: 'Create Account' }) %>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-mark">V</div>
+      <div class="auth-title"><%= settings['panel.name'] || 'vPanel' %></div>
+      <div class="auth-sub">Create your account</div>
+    </div>
+    <% if (typeof error !== 'undefined' && error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <% if (typeof success !== 'undefined' && success) { %><div class="alert alert-success"><%= success %></div><% } %>
+    <% if (typeof allowed !== 'undefined' && !allowed) { %>
+      <div class="alert alert-error">Registration is disabled by the administrator.</div>
+      <div class="auth-foot"><a href="/login" class="auth-link-strong">Back to sign in</a></div>
+    <% } else { %>
+    <form method="post" action="/register" class="auth-form">
+      <div class="field"><label class="label" for="username">Username</label><input class="input" id="username" name="username" required value="<%= typeof username !== 'undefined' ? username : '' %>" placeholder="Choose a username" autocomplete="username"/></div>
+      <div class="field"><label class="label" for="email">Email</label><input class="input" id="email" name="email" type="email" required value="<%= typeof email !== 'undefined' ? email : '' %>" placeholder="you@example.com" autocomplete="email"/></div>
+      <div class="field"><label class="label" for="password">Password</label><div class="input-pass"><input class="input" id="password" name="password" type="password" required placeholder="Create a password" autocomplete="new-password"/><button type="button" class="pass-toggle" onclick="togglePassVisibility('password',this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <div class="field"><label class="label" for="password2">Confirm Password</label><div class="input-pass"><input class="input" id="password2" name="password2" type="password" required placeholder="Confirm your password" autocomplete="new-password"/><button type="button" class="pass-toggle" onclick="togglePassVisibility('password2',this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <button type="submit" class="btn btn-primary btn-block auth-submit">Create Account</button>
+    </form>
+    <div class="auth-foot"><span class="muted">Already have an account?</span> <a href="/login" class="auth-link-strong">Sign in</a></div>
+    <% } %>
+  </div>
+</div>
+<script>
+function togglePassVisibility(id, btn){const inp=document.getElementById(id);if(!inp)return;const show=inp.type==='password';inp.type=show?'text':'password';btn.classList.toggle('active',show);btn.setAttribute('aria-label',show?'Hide password':'Show password');}
+</script>
+<%- include('../partials/auth-foot') %>

@@ -1,0 +1,18 @@
+<%- include('../partials/head', { title: 'Verify Email' }) %>
+<div class="auth-wrap">
+  <div class="auth-card" style="text-align:center">
+    <div class="auth-brand" style="margin-bottom:20px">
+      <div class="auth-mark">V</div>
+      <div class="auth-title">Email Verification</div>
+    </div>
+    <% if (typeof ok !== 'undefined' && ok) { %>
+      <div class="alert alert-success">Your email has been verified successfully.</div>
+    <% } else if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } else { %>
+      <p class="muted" style="font-size:13px;margin:0 0 20px"><%= typeof message !== 'undefined' ? message : 'Check your email for a verification link.' %></p>
+    <% } %>
+    <a href="/login" class="btn btn-primary btn-block">Back to Sign In</a>
+  </div>
+</div>
+<%- include('../partials/auth-foot') %>

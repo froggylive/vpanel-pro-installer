@@ -1,0 +1,86 @@
+<%- include('../partials/head', { title: 'Admin Overview' }) %>
+<%- include('../partials/sidebar', { activePage:'admin-dashboard', navArea:'admin' }) %>
+<div class="main-wrap">
+<%- include('../partials/topbar', { breadcrumbs:[{label:'Admin',href:'/admin'},{label:'Overview'}] }) %>
+<main class="content">
+  <%
+    const host = nodeStats || {};
+    const nodes = (typeof allNodes !== 'undefined' && allNodes) ? allNodes : [];
+    const qemu = usage && usage.qemu;
+    const cloudInit = usage && usage.cloudLocalds;
+    const agentOk = true;
+  %>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Admin Overview</h1>
+      <p class="page-sub">Manage your virtualization infrastructure and monitor host health.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="/admin/servers/create">+ Create Virtual Machine</a>
+    </div>
+  </div>
+
+  <div class="grid g-4" style="margin-bottom:20px">
+    <div class="card stat"><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg></div><div><div class="stat-label">Total Virtual Machines</div><div class="stat-val"><%= vms.length %></div><div class="stat-meta">Across all nodes</div></div></div>
+    <div class="card stat"><div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4 14h7l-1 8 10-12h-7z"/></svg></div><div><div class="stat-label">Running Virtual Machines</div><div class="stat-val"><%= running %></div><div class="stat-meta">Currently online</div></div></div>
+    <div class="card stat"><div class="stat-icon gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div><div class="stat-label">Registered Users</div><div class="stat-val"><%= users.length %></div><div class="stat-meta">User accounts</div></div></div>
+    <div class="card stat"><div class="stat-icon yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12v7c0 1.66 3.58 3 8 3s8-1.34 8-3v-7"/></svg></div><div><div class="stat-label">Total Allocated Storage</div><div class="stat-val"><%= totalDisk %> <span style="font-size:14px;color:var(--muted);font-weight:600">GB</span></div><div class="stat-meta">Allocated to VMs</div></div></div>
+  </div>
+
+  <div class="grid g-2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="card-h"><div class="card-t">Node Overview</div><a href="/admin/nodes" class="btn btn-sm">Manage Nodes</a></div>
+      <div class="card-b">
+        <div class="grid g-2">
+          <% const nodeCards = nodes.length ? nodes : [{id:host.id||1,name:host.name||'Local Node',fqdn:host.fqdn||host.hostname||'localhost',status:host.status||'online',cpu:host.cpu,memory:host.memory,disk:host.disk,vms_count:host.vms?.total||vms.length,hypervisor:host.hypervisor}]; %>
+          <% nodeCards.slice(0,4).forEach(n => { const cpuPct = n.cpu?.percent ?? null; const memPct = n.memory?.percent ?? null; const diskPct = n.disk?.percent ?? null; %>
+            <div class="card" style="background:#111">
+              <div class="card-b">
+                <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:12px">
+                  <div><div style="font-weight:600;color:#fff"><%= n.name %></div><div class="muted2 mono" style="font-size:11px"><%= n.fqdn || n.hostname || '—' %></div></div>
+                  <span class="badge <%= (n.status||'online')==='online'?'badge-green':'badge-red' %>"><%= n.status || 'online' %></span>
+                </div>
+                <div class="kv"><span class="k">CPU</span><span class="v"><%= n.cpu?.model ? n.cpu.model.split('@')[0].slice(0,28) : 'Unavailable' %></span></div>
+                <div class="kv"><span class="k">RAM</span><span class="v"><%= n.memory ? `${n.memory.used_mb} / ${n.memory.total_mb} MB` : (n.memory_mb?`${n.memory_mb} MB`:'Unavailable') %></span></div>
+                <div class="kv"><span class="k">Disk</span><span class="v"><%= n.disk ? `${n.disk.used_gb} / ${n.disk.total_gb} GB` : (n.disk_gb?`${n.disk_gb} GB`:'Unavailable') %></span></div>
+                <div class="kv"><span class="k">VMs</span><span class="v"><%= n.vms_count ?? n.vm_count ?? n.servers_count ?? 0 %></span></div>
+                <div style="margin-top:12px;display:grid;gap:8px">
+                  <div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted2);margin-bottom:4px"><span>CPU</span><span><%= cpuPct==null?'Unavailable':cpuPct+'%' %></span></div><div class="progress"><span style="width:<%= Math.min(100,Number(cpuPct||0)) %>%"></span></div></div>
+                  <div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted2);margin-bottom:4px"><span>Memory</span><span><%= memPct==null?'Unavailable':memPct+'%' %></span></div><div class="progress"><span style="width:<%= Math.min(100,Number(memPct||0)) %>%"></span></div></div>
+                </div>
+                <div style="margin-top:14px"><a href="/admin/nodes/<%= n.id || 1 %>" class="btn btn-sm">View Node</a></div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-t">Installed Components</div></div>
+      <div class="card-b" style="display:grid;gap:12px">
+        <div class="card" style="background:#111"><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:600">QEMU Hypervisor</div><div class="muted2" style="font-size:12px">KVM virtualization engine</div></div><span class="badge <%= qemu ? 'badge-green':'badge-red' %>"><%= qemu ? 'Installed':'Unavailable' %></span></div></div>
+        <div class="card" style="background:#111"><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:600">Cloud-Init Engine</div><div class="muted2" style="font-size:12px">Seed ISO and metadata generator</div></div><span class="badge <%= cloudInit ? 'badge-green':'badge-red' %>"><%= cloudInit ? 'Installed':'Unavailable' %></span></div></div>
+        <div class="card" style="background:#111"><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:600">Node Agent</div><div class="muted2" style="font-size:12px">Node communication service</div></div><span class="badge <%= agentOk ? 'badge-green':'badge-yellow' %>"><%= agentOk ? 'Installed':'Unavailable' %></span></div></div>
+        <div class="card" style="background:#111"><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:600">Storage Backend</div><div class="muted2" style="font-size:12px">Local VM storage path</div></div><span class="badge badge-green">Installed</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-t">Recent Activity</div><a href="/admin/activity" class="btn btn-sm">View All</a></div>
+    <div class="table-wrap"><table><thead><tr><th>Event</th><th>User</th><th>Details</th><th>Time</th></tr></thead><tbody>
+      <% if (!recentLogs.length) { %><tr><td colspan="4"><div class="table-empty">No recent activity.</div></td></tr><% } %>
+      <% recentLogs.slice(0,10).forEach(a => { %>
+        <tr>
+          <td><span class="badge badge-gray"><%= a.event %></span></td>
+          <td class="muted"><%= a.username || 'System' %></td>
+          <td class="muted mono" style="max-width:360px;overflow:hidden;text-overflow:ellipsis"><%= a.details ? JSON.stringify(a.details).slice(0,120) : '—' %></td>
+          <td class="muted2"><%= a.created_at ? new Date(a.created_at).toLocaleString() : '—' %></td>
+        </tr>
+      <% }) %>
+    </tbody></table></div>
+  </div>
+</main>
+</div>
+<%- include('../partials/foot') %>

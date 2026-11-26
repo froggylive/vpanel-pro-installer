@@ -1,0 +1,25 @@
+<%- include('../../partials/head', { title: 'API Keys' }) %>
+<%- include('../../partials/sidebar', { activePage:'account-api-keys', navArea:'user' }) %>
+<div class="main-wrap"><%- include('../../partials/topbar', { breadcrumbs:[{label:'Account'},{label:'API Keys'}] }) %>
+<main class="content">
+  <div class="page-head"><div><h1 class="page-title">API Keys</h1><p class="page-sub">Manage API keys for programmatic access.</p></div><div class="page-actions"><button class="btn btn-primary" onclick="document.getElementById('newKey').style.display='block'">Create API Key</button></div></div>
+  <div class="card" id="newKey" style="display:none;margin-bottom:16px"><div class="card-h"><div class="card-t">Create API Key</div></div><div class="card-b">
+    <form id="kForm"><div class="field"><label class="label">Name</label><input class="input" name="name" required placeholder="My API Key"></div>
+    <div class="field"><label class="label">Permissions</label><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;color:var(--muted);font-size:13px">
+      <% ['servers:read','servers:create','servers:power','servers:console','servers:files','backups:read','backups:create'].forEach(s=>{ %>
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="scopes" value="<%=s%>"> <%=s%></label>
+      <% }) %>
+    </div></div>
+    <button class="btn btn-primary" type="submit">Create Key</button></form>
+    <div id="keyResult" style="display:none;margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:#111"><div class="muted" style="font-size:12px;margin-bottom:6px">Copy this key now. It will not be shown again.</div><code id="keyVal" style="word-break:break-all;font-family:var(--mono);font-size:12px"></code></div>
+  </div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Key</th><th>Permissions</th><th>Created</th><th>Last Used</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+    <% if(!keys.length){ %><tr><td colspan="6"><div class="table-empty">No API keys created.</div></td></tr><% } %>
+    <% keys.forEach(k=>{ %><tr><td style="font-weight:500"><%= k.name %></td><td class="mono muted"><%= k.key_preview || '—' %></td><td class="muted" style="font-size:12px"><%= (k.scopes||[]).join(', ') || '—' %></td><td class="muted"><%= k.created_at?new Date(k.created_at).toLocaleDateString():'—' %></td><td class="muted"><%= k.last_used_at?new Date(k.last_used_at).toLocaleString():'Never' %></td><td style="text-align:right"><button class="btn btn-sm btn-danger" onclick="delKey(<%=k.id%>)">Revoke</button></td></tr><% }) %>
+  </tbody></table></div></div>
+</main></div>
+<script>
+kForm.onsubmit=async e=>{e.preventDefault(); const fd=new FormData(e.target); const scopes=fd.getAll('scopes'); try{ const r=await VP.api('/account/api-keys',{method:'POST',body:{name:fd.get('name'),scopes}}); keyResult.style.display='block'; keyVal.textContent=r.key; VP.toast('API key created','success'); }catch(err){VP.toast(err.message,'error')} };
+async function delKey(id){ if(!await VP.confirm('Revoke this API key? Applications using it will stop working.',{danger:true,okText:'Revoke'})) return; await VP.api('/account/api-keys/'+id+'/delete',{method:'POST'}); location.reload(); }
+</script>
+<%- include('../../partials/foot') %>
