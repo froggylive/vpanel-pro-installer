@@ -624,6 +624,37 @@ async function resizeDisk(vm, newSize, user) {
   return getVm(vm.id);
 }
 
+async function reinstall(vm, { os, user = null } = {}) {
+  if (isRunning(vm)) await stop(vm, { user, force: true });
+  const osList = getOsList();
+  const osEntry = osList.find((o) => o[0] === os) || osList[0];
+  const dir = vmDir(vm);
+  const img = vm.img_file || path.join(dir, 'disk.qcow2');
+  try { if (fs.existsSync(img)) fs.unlinkSync(img); } catch (_) {}
+  await setDbStatus(vm.id, 'installing');
+  try {
+    await download(osEntry[3], img);
+    const diskSize = String(vm.disk_size || settings.get('vm.default_disk') || '20G').toUpperCase();
+    spawnSync('qemu-img', ['resize', img, diskSize], { encoding: 'utf8' });
+    const $set = {
+      os_type: osEntry[1] || vm.os_type,
+      codename: osEntry[2] || vm.codename,
+      img_url: osEntry[3] || vm.img_url,
+      updated_at: now(),
+      status: 'stopped',
+    };
+    await collections.vms.updateOne({ id: Number(vm.id) }, { $set });
+    const fresh = await getVm(vm.id);
+    writeSeed(fresh);
+    clearBootLog(fresh);
+    await logActivity({ user_id: user ? user.id : null, vm_id: vm.id, event: 'vm:reinstall', details: { os: osEntry[0] } });
+    return getVm(vm.id);
+  } catch (e) {
+    await setDbStatus(vm.id, 'stopped');
+    throw e;
+  }
+}
+
 function usage() {
   return {
     qemu: hasBin('qemu-system-x86_64'),
@@ -780,6 +811,6 @@ function liveStats(vm) {
 
 module.exports = {
   VM_DIR, vmDir, dbVms, getVm, create, start, stop, restart, remove, update,
-  resizeDisk, isRunning, statusOf, serializeVm, canAccess, allocPort, allocVncPort, allocAgentPort,
+  resizeDisk, reinstall, isRunning, statusOf, serializeVm, canAccess, allocPort, allocVncPort, allocAgentPort,
   parseForwards, usage, uptimeSeconds, memUsage, cpuUsage, diskActualUsage, liveStats, totalDiskUsage, startOnBootAll, getOsList, getBootLog, clearBootLog, hasKvm, transferOwner,
 };

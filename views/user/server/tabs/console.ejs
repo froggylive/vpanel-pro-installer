@@ -6,9 +6,9 @@
 .console-tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .console-tab{padding:8px 12px;border:1px solid var(--border);background:#111;color:#a1a1aa;border-radius:8px;font-size:13px;cursor:pointer}
 .console-tab.active{background:#fff;color:#000;border-color:#fff}
-#terminal,#bootlog{height:min(62vh,640px);min-height:280px;background:#050505;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:100%}
+#terminal,#bootlog,#vncWrap{height:min(62vh,640px);min-height:280px;background:#050505;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:100%}
 #bootlog{display:none;padding:12px;overflow:auto;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#d4d4d8;white-space:pre-wrap;word-break:break-word}
-@media (max-width: 768px){#terminal,#bootlog{height:min(56vh,520px);min-height:240px}}
+@media (max-width: 768px){#terminal,#bootlog,#vncWrap{height:min(56vh,520px);min-height:240px}}
 .console-status{font-size:12px;color:#a1a1aa}
 .console-status.ok{color:#86efac}.console-status.err{color:#fca5a5}.console-status.warn{color:#fcd34d}
 </style>
@@ -30,9 +30,13 @@
     <div class="console-tabs">
       <button class="console-tab active" data-view="terminal" id="tabTerminal">Terminal</button>
       <button class="console-tab" data-view="bootlog" id="tabBootlog">Boot Log</button>
+      <button class="console-tab" data-view="vnc" id="tabVnc">VNC</button>
     </div>
     <div id="terminal"></div>
     <pre id="bootlog">Loading boot log...</pre>
+    <div id="vncWrap" style="display:none;height:min(62vh,640px);min-height:280px;background:#050505;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:100%">
+      <iframe id="vncFrame" title="VNC Console" style="width:100%;height:100%;border:0;background:#050505"></iframe>
+    </div>
     <div class="muted2" style="font-size:12px;margin-top:10px" id="consoleHint">If the terminal stays disconnected while the VPS is starting, check Boot Log for startup progress.</div>
   </div>
 </div>
@@ -50,12 +54,15 @@ function switchView(view){
   activeView=view;
   document.getElementById('tabTerminal').classList.toggle('active', view==='terminal');
   document.getElementById('tabBootlog').classList.toggle('active', view==='bootlog');
+  document.getElementById('tabVnc').classList.toggle('active', view==='vnc');
   document.getElementById('terminal').style.display=view==='terminal'?'block':'none';
   bootEl.style.display=view==='bootlog'?'block':'none';
+  document.getElementById('vncWrap').style.display=view==='vnc'?'block':'none';
   document.getElementById('clearTermBtn').style.display=view==='terminal'?'':'none';
   document.getElementById('clearBootBtn').style.display=view==='bootlog'?'':'none';
   if(view==='terminal'){ setTimeout(()=>{ fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows}); }, 50); }
   if(view==='bootlog'){ joinBootlog(); setTimeout(()=>{ bootEl.scrollTop=bootEl.scrollHeight; }, 50); }
+  if(view==='vnc'){ loadVnc(); }
 }
 function ensureSocket(){
   if(socket) return socket;
@@ -65,10 +72,17 @@ function ensureSocket(){
     socket.emit('console:join',{vmId,sessionId:1,cols:term.cols,rows:term.rows});
     if(bootJoined) socket.emit('bootlog:join',{vmId});
   });
-  socket.on('console:ready',()=>setStatus('Terminal ready','ok'));
+  socket.on('console:ready',()=>{ clearTimeout(sshRetryTimer); setStatus('Terminal ready','ok'); document.getElementById('consoleHint').textContent='Terminal connected. You can paste commands directly.'; });
   socket.on('console:data',d=>term.write(typeof d==='string'?d:(d.data||'')));
-  socket.on('console:offline',()=>{ setStatus('Server offline / SSH not ready','warn'); term.write('\r\n\x1b[33m[Console] Server is offline or SSH is not ready yet. Check Boot Log for startup progress.\x1b[0m\r\n'); if(!bootJoined) joinBootlog(); });
-  socket.on('console:error',e=>{ const msg=e?.message||e||'Console error'; term.write(`\r\n\x1b[31m[Console] ${msg}\x1b[0m\r\n`); setStatus('Terminal error','err'); if(String(msg).toLowerCase().includes('ssh')){ document.getElementById('consoleHint').textContent='SSH terminal could not connect. The VPS may still be booting; open Boot Log to monitor startup.'; } });
+  let sshRetryTimer=null;
+  function scheduleSshRetry(reason){
+    clearTimeout(sshRetryTimer);
+    setStatus('SSH not ready, retrying...','warn');
+    document.getElementById('consoleHint').textContent=(reason||'SSH not ready yet.')+' Auto-retrying every 5s. You can use VNC tab meanwhile.';
+    sshRetryTimer=setTimeout(()=>{ if(activeView!=='vnc') connectTerminal(); }, 5000);
+  }
+  socket.on('console:offline',()=>{ term.write('\r\n\x1b[33m[Console] Server offline or SSH not ready yet. Auto-retrying...\x1b[0m\r\n'); if(!bootJoined) joinBootlog(); scheduleSshRetry('Server offline or SSH not ready.'); });
+  socket.on('console:error',e=>{ const msg=e?.message||e||'Console error'; term.write(`\r\n\x1b[31m[Console] ${msg}\x1b[0m\r\n`); if(String(msg).toLowerCase().includes('ssh')||String(msg).toLowerCase().includes('timeout')){ scheduleSshRetry(msg); } else { setStatus('Terminal error','err'); } });
   socket.on('console:close',()=>setStatus('Terminal disconnected','warn'));
   socket.on('disconnect',()=>setStatus('Disconnected','warn'));
 
@@ -88,10 +102,20 @@ if(window.ResizeObserver){ try{ new ResizeObserver(()=>fitConsole()).observe(doc
 setTimeout(fitConsole,100);
 document.getElementById('tabTerminal').onclick=()=>switchView('terminal');
 document.getElementById('tabBootlog').onclick=()=>switchView('bootlog');
-document.getElementById('reconnectBtn').onclick=()=>{ if(activeView==='bootlog'){ bootJoined=false; bootEl.textContent='Loading boot log...'; joinBootlog(); } connectTerminal(); };
+document.getElementById('tabVnc').onclick=()=>switchView('vnc');
+function vncUrl(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  const host=location.host;
+  return `/novnc/vnc_lite.html?autoconnect=1&resize=scale&reconnect=1&path=${encodeURIComponent(`vncws/${vmId}?token=${encodeURIComponent(decodeURIComponent(token))}`)}`;
+}
+function loadVnc(force){
+  const f=document.getElementById('vncFrame');
+  if(force || !f.src || f.src==='about:blank') f.src=vncUrl();
+}
+document.getElementById('reconnectBtn').onclick=()=>{ if(activeView==='bootlog'){ bootJoined=false; bootEl.textContent='Loading boot log...'; joinBootlog(); } else if(activeView==='vnc'){ loadVnc(true); } connectTerminal(); };
 document.getElementById('clearTermBtn').onclick=()=>term.clear();
 document.getElementById('clearBootBtn').onclick=()=>{ if(confirm('Clear boot log files for this server?')) ensureSocket().emit('bootlog:clear',{vmId}); };
-document.getElementById('fullscreenBtn').onclick=()=>{ const el=activeView==='bootlog'?bootEl:document.getElementById('terminal'); if(!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); setTimeout(()=>{ fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows}); if(activeView==='bootlog') bootEl.scrollTop=bootEl.scrollHeight; },200); };
+document.getElementById('fullscreenBtn').onclick=()=>{ const el=activeView==='bootlog'?bootEl:activeView==='vnc'?document.getElementById('vncWrap'):document.getElementById('terminal'); if(!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); setTimeout(()=>{ fit.fit(); socket?.emit('console:resize',{sessionId:1,cols:term.cols,rows:term.rows}); if(activeView==='bootlog') bootEl.scrollTop=bootEl.scrollHeight; },200); };
 ensureSocket();
 connectTerminal();
 </script>

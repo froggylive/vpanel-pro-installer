@@ -35,6 +35,7 @@ function createWebApp() {
   });
   app.use(express.static(path.join(config.root, 'public')));
   app.use('/uploads', express.static(path.join(config.root, 'public/uploads')));
+  app.use('/novnc', express.static('/usr/share/novnc'));
 
   // expose auth for middleware
   const { optionalAuth } = require('./middleware/auth');
@@ -138,8 +139,8 @@ function attachConsoleSocket(io) {
       const initialRows = payload.rows || socket.data.rows || 33;
 
       sshService.shellStreamWithRetry(vm, {
-        maxRetries: 30,
-        retryDelay: 1500,
+        maxRetries: 120,
+        retryDelay: 2000,
         shouldContinue: () => socket.connected && !socket.data.isLeaving && vmService.isRunning(vm),
       })
         .then(({ conn, stream }) => {
