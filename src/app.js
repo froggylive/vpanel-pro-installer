@@ -126,12 +126,10 @@ function attachConsoleSocket(io) {
       const vm = await vmService.getVm(parseInt(vmId, 10));
       if (!vm || !(await vmService.canAccess(socket.data.user, vm, 'console'))) {
         socket.emit('console:error', { sessionId, message: 'Access denied or server not found' });
-        socket.emit('console:error', 'Access denied or server not found');
         return;
       }
       if (!vmService.isRunning(vm)) {
         socket.emit('console:offline', { sessionId });
-        socket.emit('console:offline');
         return;
       }
 
@@ -161,12 +159,10 @@ function attachConsoleSocket(io) {
           stream.on('data', (d) => {
             const str = d.toString('utf8');
             socket.emit('console:data', { sessionId, data: str });
-            if (sessionId === '1') socket.emit('console:data', str);
           });
 
           const onEnd = () => {
             socket.emit('console:close', { sessionId });
-            if (sessionId === '1') socket.emit('console:close');
             delete socket.data.sessions[sessionId];
             if (socket.data.stream === stream) socket.data.stream = null;
             if (socket.data.conn === conn) socket.data.conn = null;
@@ -180,11 +176,8 @@ function attachConsoleSocket(io) {
           if (socket.data.isLeaving || !socket.connected) return;
           if (!vmService.isRunning(vm)) {
             socket.emit('console:offline', { sessionId });
-            socket.emit('console:offline');
           } else {
-            const errMsg = 'SSH connection failed: ' + e.message;
-            socket.emit('console:error', { sessionId, message: errMsg });
-            socket.emit('console:error', errMsg);
+            socket.emit('console:error', { sessionId, message: 'SSH connection failed: ' + e.message });
           }
         });
     });
