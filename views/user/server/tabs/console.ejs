@@ -43,8 +43,18 @@
 <script>
 const vmId=<%=currentVm.id%>;
 const token=(document.cookie.match(/(?:^|; )token=([^;]+)/)||[])[1]||'';
-const term=new Terminal({cursorBlink:true,fontSize:13,fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',theme:{background:'#050505',foreground:'#FAFAFA'}});
+const term=new Terminal({cursorBlink:true,fontSize:13,fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',theme:{background:'#050505',foreground:'#FAFAFA'},convertEol:true,scrollback:5000});
 const fit=new FitAddon.FitAddon(); term.loadAddon(fit); term.open(document.getElementById('terminal')); fit.fit();
+term.focus();
+// Fix prompt/copy-paste issues
+term.attachCustomKeyEventHandler((ev)=>{
+  if(ev.type!=='keydown') return true;
+  const ctrl=ev.ctrlKey||ev.metaKey;
+  if(ctrl && ev.key.toLowerCase()==='c' && term.hasSelection()){ document.execCommand('copy'); return false; }
+  if(ctrl && ev.key.toLowerCase()==='v'){ navigator.clipboard?.readText?.().then(t=>{ if(t) socket?.emit('console:input',{sessionId:1,data:t}); }); return false; }
+  return true;
+});
+document.getElementById('terminal').addEventListener('contextmenu',(e)=>{ e.preventDefault(); if(term.hasSelection()){ document.execCommand('copy'); term.clearSelection(); } else { navigator.clipboard?.readText?.().then(t=>{ if(t) socket?.emit('console:input',{sessionId:1,data:t}); }); } });
 let socket, activeView='terminal', bootJoined=false;
 const connStatus=document.getElementById('connStatus');
 const bootEl=document.getElementById('bootlog');
@@ -72,7 +82,7 @@ function ensureSocket(){
     socket.emit('console:join',{vmId,sessionId:1,cols:term.cols,rows:term.rows});
     if(bootJoined) socket.emit('bootlog:join',{vmId});
   });
-  socket.on('console:ready',()=>{ clearTimeout(sshRetryTimer); setStatus('Terminal ready','ok'); document.getElementById('consoleHint').textContent='Terminal connected. You can paste commands directly.'; });
+  socket.on('console:ready',()=>{ clearTimeout(sshRetryTimer); setStatus('Terminal ready','ok'); document.getElementById('consoleHint').textContent='Terminal connected. Type commands, use Ctrl+Shift+V/Ctrl+V to paste, Ctrl+Shift+C to copy selection, right-click to copy/paste.'; term.focus(); });
   socket.on('console:data',d=>term.write(typeof d==='string'?d:(d.data||'')));
   let sshRetryTimer=null;
   function scheduleSshRetry(reason){
