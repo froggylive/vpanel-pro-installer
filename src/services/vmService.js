@@ -140,7 +140,8 @@ function buildQemuArgs(vm) {
   const kvmAvailable = hasKvm();
   const accelMode = kvmAvailable ? 'kvm:tcg' : 'tcg';
   const configuredCpu = String(vm.cpu_model || '').trim();
-  const cpuType = configuredCpu || (kvmAvailable ? 'host' : 'Cascadelake-Server');
+  // TCG cannot efficiently emulate modern Intel features; use TCG-friendly Intel default.
+  const cpuType = configuredCpu || (kvmAvailable ? 'host' : 'IvyBridge');
   const diskCache = String(vm.disk_cache || 'writeback').trim() || 'writeback';
 
   const args = [
