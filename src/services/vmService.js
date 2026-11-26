@@ -588,14 +588,26 @@ function ensureLxcContainer(vm){
     fs.mkdirSync(path.join(dir,'cloud-init'), { recursive:true });
     if (!exists) {
       const img = dockerImageForVm(vm);
-      try { runCmd(`docker pull ${img}`, {timeout:300000}); } catch(e){ logger.warn('[lxc] docker pull failed: '+e.message); }
+      let localImg = img;
+      const hasLocal = (t)=>{ try{ runCmd(`docker image inspect ${t} >/dev/null 2>&1`,{timeout:10000}); return true; }catch(_){ return false; } };
+      if (!hasLocal(img)) {
+        try { runCmd(`docker pull ${img}`, {timeout:300000}); } catch(e){
+          // fallback to any local linux image
+          const fallbacks = ['ubuntu:24.04','ubuntu:22.04','debian:12','alpine:3.20','alpine:latest'];
+          localImg = fallbacks.find(hasLocal);
+          if (!localImg) {
+            throw new Error(`Cannot pull Docker image ${img} and no local fallback image exists. This node cannot reach Docker Hub. Pre-pull an image (e.g. docker pull ubuntu:24.04) or fix node internet/registry access. Original error: ${(e.stderr||e.message||e).toString().slice(0,300)}`);
+          }
+          logger.warn(`[lxc] pull failed for ${img}, using local fallback ${localImg}`);
+        }
+      }
       const mem = Math.max(128, parseInt(vm.memory,10)||512);
       const cpus = Math.max(1, parseInt(vm.cpus,10)||1);
       const sshPort = parseInt(vm.ssh_port,10);
       const forwards = parseForwards(vm.port_forwards);
       let ports = `-p ${sshPort}:22`;
       for (const f of forwards) ports += ` -p ${parseInt(f.host,10)}:${parseInt(f.guest,10)}`;
-      const cmd = `docker create --name ${name} --hostname ${String(vm.hostname||vm.name).replace(/[^a-zA-Z0-9.-]/g,'')} --memory=${mem}m --cpus=${cpus} --restart unless-stopped ${ports} -v ${path.join(dir,'rootfs')}:/data ${img} /bin/sh -c "sleep infinity"`;
+      const cmd = `docker create --name ${name} --hostname ${String(vm.hostname||vm.name).replace(/[^a-zA-Z0-9.-]/g,'')} --memory=${mem}m --cpus=${cpus} --restart unless-stopped ${ports} -v ${path.join(dir,'rootfs')}:/data ${localImg} /bin/sh -c "sleep infinity"`;
       runCmd(cmd, {timeout:300000});
       setDbStatus(vm.id,'stopped');
     }
